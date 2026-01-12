@@ -4,6 +4,8 @@ from datetime import datetime
 
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
@@ -137,6 +139,45 @@ def cross_validate_auc(pipeline_builder, X: pd.DataFrame, y: pd.Series, folds: i
     return float(np.mean(aucs))
 
 
+def plot_feature_importance(clf, X, top_n=20):
+    """
+    Extracts feature names from the pipeline and plots feature importance if the model supports it.
+    """
+    model = clf.named_steps["model"]
+    preprocessor = clf.named_steps["prep"]
+
+    # Extract feature names after transformation
+    # Note: feature_names_out is available in modern sklearn for ColumnTransformer
+    try:
+        feature_names = preprocessor.get_feature_names_out()
+    except Exception:
+        # Fallback if get_feature_names_out fails
+        feature_names = [f"f{i}" for i in range(model.n_features_in_)]
+
+    importances = None
+    if hasattr(model, "feature_importances_"):
+        importances = model.feature_importances_
+    elif hasattr(model, "coef_"):
+        importances = np.abs(model.coef_[0])
+
+    if importances is not None:
+        feat_imp = pd.DataFrame({"feature": feature_names, "importance": importances})
+        feat_imp = feat_imp.sort_values(by="importance", ascending=False).head(top_n)
+
+        plt.figure(figsize=(10, 8))
+        sns.barplot(x="importance", y="feature", data=feat_imp)
+        plt.title(f"Top {top_n} Feature Importances")
+        plt.tight_layout()
+
+        os.makedirs("plots", exist_ok=True)
+        plot_path = os.path.join("plots", "feature_importance.png")
+        plt.savefig(plot_path)
+        print(f"[OK] Saved feature importance plot to {plot_path}")
+        plt.close()
+    else:
+        print("[WARN] Model does not support feature importance/coefficients.")
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--data-dir", default="data", help="Folder containing Kaggle CSV files")
@@ -185,6 +226,7 @@ def main():
     )
 
     clf.fit(X, y)
+    plot_feature_importance(clf, X)
     test_proba = clf.predict_proba(X_test)[:, 1]
 
     # Write submission
