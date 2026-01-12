@@ -1,0 +1,6 @@
+numpy>=1.26
+pandas>=2.2.3
+scikit-learn>=1.6.0
+pyarrow>=16.0.0
+# Optional but recommended for better AUC:
+lightgbm>=4.0.0
