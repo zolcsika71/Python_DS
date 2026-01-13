@@ -40,7 +40,7 @@ def try_build_model(prefer_lightgbm: bool):
         solver="saga",
         max_iter=400,
         n_jobs=-1,
-        # class_weight="balanced",  # optional: try if you want
+        # class_weight="balanced", # optional: try if you want
         random_state=42,
     )
 
@@ -64,7 +64,7 @@ def load_data(data_dir: str):
 
 def fix_known_anomalies(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Known issue from common baselines: DAYS_EMPLOYED has a placeholder value 365243.
+    Known issue from common baselines: DAYS_EMPLOYED has placeholder value 365243.
     We convert it to NaN and add a flag feature.
     """
     if "DAYS_EMPLOYED" in df.columns:
@@ -110,7 +110,7 @@ def build_pipeline():
 
 def cross_validate_auc(pipeline_builder, x: pd.DataFrame, y: pd.Series, folds: int):
     skf = StratifiedKFold(n_splits=folds, shuffle=True, random_state=42)
-    aucs = []
+    arcs = []
 
     for fold, (tr_idx, va_idx) in enumerate(skf.split(x, y), start=1):
         x_tr, x_va = x.iloc[tr_idx], x.iloc[va_idx]
@@ -129,19 +129,19 @@ def cross_validate_auc(pipeline_builder, x: pd.DataFrame, y: pd.Series, folds: i
         clf.fit(x_tr, y_tr)
         proba = clf.predict_proba(x_va)[:, 1]
         auc_val = roc_auc_score(y_va, proba)
-        aucs.append(auc_val)
+        arcs.append(auc_val)
         print(f"[CV] Fold {fold}/{folds} AUC: {auc_val:.5f}")
 
-    print(f"[CV] Mean AUC: {np.mean(aucs):.5f}  Std: {np.std(aucs):.5f}")
-    return float(np.mean(aucs))
+    print(f"[CV] Mean AUC: {np.mean(arcs):.5f}  Std: {np.std(arcs):.5f}")
+    return float(np.mean(arcs))
 
 
-def plot_prediction_distribution(probas, out_path):
+def plot_prediction_distribution(probes, out_path):
     """
     Plots the distribution of predicted probabilities.
     """
     plt.figure(figsize=(10, 6))
-    plt.hist(probas, bins=50, density=True, alpha=0.7, color='skyblue', edgecolor='white')
+    plt.hist(probes, bins=50, density=True, alpha=0.7, color='skyblue', edgecolor='white')
     plt.title("Distribution of Predicted Probabilities")
     plt.xlabel("Probability")
     plt.ylabel("Density")
@@ -151,11 +151,11 @@ def plot_prediction_distribution(probas, out_path):
     plt.close()
 
 
-def plot_roc_curve(y_true, y_probas, out_path):
+def plot_roc_curve(y_true, y_probes, out_path):
     """
     Plots the ROC curve.
     """
-    fpr, tpr, _ = roc_curve(y_true, y_probas)
+    fpr, tpr, _ = roc_curve(y_true, y_probes)
     roc_auc = auc(fpr, tpr)
 
     plt.figure(figsize=(10, 8))
@@ -219,7 +219,7 @@ def _plot_importance_data(feature_names, importances, top_n):
 
     plt.figure(figsize=(10, 8))
     plt.barh(feat_imp["feature"], feat_imp["importance"], color='skyblue')
-    plt.gca().invert_yaxis()  # Put highest importance at the top
+    plt.gca().invert_yaxis()  # Put the highest importance at the top
     plt.title(f"Top {top_n} Feature Importances")
     plt.xlabel("Importance Score")
     plt.tight_layout()
@@ -253,22 +253,21 @@ def main():
         raise ValueError("Expected SK_ID_CURR column in both train and test.")
 
     y = train_df["TARGET"].astype(int)
-    train_ids = train_df["SK_ID_CURR"]
     test_ids = test_df["SK_ID_CURR"]
 
-    X = train_df.drop(columns=["TARGET"])
-    X_test = test_df.copy()
+    x_train = train_df.drop(columns=["TARGET"])
+    x_test = test_df.copy()
 
     # Build pipeline builder (needs x columns)
     pipeline_builder = build_pipeline()
 
     # Cross-validate (optional but very useful in an exam to show methodology)
     print("[INFO] Running cross-validation...")
-    _ = cross_validate_auc(pipeline_builder, X, y, folds=args.folds)
+    _ = cross_validate_auc(pipeline_builder, x_train, y, folds=args.folds)
 
-    # Train final model on full data
+    # Train the final model on full data
     print("[INFO] Training final model on full training data...")
-    preprocessor = pipeline_builder(X)
+    preprocessor = pipeline_builder(x_train)
     model = try_build_model(prefer_lightgbm=args.prefer_lightgbm)
 
     clf = Pipeline(
@@ -278,14 +277,14 @@ def main():
         ]
     )
 
-    clf.fit(X, y)
+    clf.fit(x_train, y)
     
     # Feature importance plot
     plot_feature_importance(clf)
 
     # Prediction distributions
-    train_proba = clf.predict_proba(X)[:, 1]
-    test_proba = clf.predict_proba(X_test)[:, 1]
+    train_proba = clf.predict_proba(x_train)[:, 1]
+    test_proba = clf.predict_proba(x_test)[:, 1]
 
     # Histogram and Density Comparison using Matplotlib
     plt.figure(figsize=(12, 7))
@@ -302,7 +301,7 @@ def main():
     print(f"[OK] Saved distribution comparison plot to {dist_plot_path}")
     plt.close()
 
-    # ROC curve (using training data as proxy)
+    # ROC curve (using training data as a proxy)
     plot_roc_curve(y, train_proba, os.path.join("plots", "train_roc_curve.png"))
 
     # Remove old/redundant plots if they exist from previous runs
