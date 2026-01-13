@@ -9,7 +9,7 @@ This project uses **Poetry** for dependency management and packaging.
       ```bash
       poetry install
       ```
-    - The project requires Python >= 3.13.
+    - The project requires Python >= 3.12.
 
 2.  **Data Requirements**:
     - The project expects Kaggle's "Home Credit Default Risk" dataset.
