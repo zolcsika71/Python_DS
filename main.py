@@ -5,17 +5,14 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import seaborn as sns
 
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
-from sklearn.metrics import roc_auc_score
+from sklearn.metrics import roc_auc_score, roc_curve, auc
 from sklearn.model_selection import StratifiedKFold
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
-
 from sklearn.linear_model import LogisticRegression
-
 
 def try_build_model(prefer_lightgbm: bool):
     """
@@ -131,12 +128,49 @@ def cross_validate_auc(pipeline_builder, X: pd.DataFrame, y: pd.Series, folds: i
 
         clf.fit(X_tr, y_tr)
         proba = clf.predict_proba(X_va)[:, 1]
-        auc = roc_auc_score(y_va, proba)
-        aucs.append(auc)
-        print(f"[CV] Fold {fold}/{folds} AUC: {auc:.5f}")
+        auc_val = roc_auc_score(y_va, proba)
+        aucs.append(auc_val)
+        print(f"[CV] Fold {fold}/{folds} AUC: {auc_val:.5f}")
 
     print(f"[CV] Mean AUC: {np.mean(aucs):.5f}  Std: {np.std(aucs):.5f}")
     return float(np.mean(aucs))
+
+
+def plot_prediction_distribution(probas, out_path):
+    """
+    Plots the distribution of predicted probabilities.
+    """
+    plt.figure(figsize=(10, 6))
+    plt.hist(probas, bins=50, density=True, alpha=0.7, color='skyblue', edgecolor='white')
+    plt.title("Distribution of Predicted Probabilities")
+    plt.xlabel("Probability")
+    plt.ylabel("Density")
+    plt.tight_layout()
+    plt.savefig(out_path)
+    print(f"[OK] Saved prediction distribution plot to {out_path}")
+    plt.close()
+
+
+def plot_roc_curve(y_true, y_probas, out_path):
+    """
+    Plots the ROC curve.
+    """
+    fpr, tpr, _ = roc_curve(y_true, y_probas)
+    roc_auc = auc(fpr, tpr)
+
+    plt.figure(figsize=(10, 8))
+    plt.plot(fpr, tpr, color="darkorange", lw=2, label=f"ROC curve (area = {roc_auc:.4f})")
+    plt.plot([0, 1], [0, 1], color="navy", lw=2, linestyle="--")
+    plt.xlim([0.0, 1.0])
+    plt.ylim([0.0, 1.05])
+    plt.xlabel("False Positive Rate")
+    plt.ylabel("True Positive Rate")
+    plt.title("Receiver Operating Characteristic (ROC)")
+    plt.legend(loc="lower right")
+    plt.tight_layout()
+    plt.savefig(out_path)
+    print(f"[OK] Saved ROC curve plot to {out_path}")
+    plt.close()
 
 
 def plot_feature_importance(clf, X, top_n=20):
@@ -147,11 +181,19 @@ def plot_feature_importance(clf, X, top_n=20):
     preprocessor = clf.named_steps["prep"]
 
     # Extract feature names after transformation
-    # Note: feature_names_out is available in modern sklearn for ColumnTransformer
     try:
-        feature_names = preprocessor.get_feature_names_out()
-    except Exception:
-        # Fallback if get_feature_names_out fails
+        # Get feature names from ColumnTransformer
+        feature_names = []
+        for name, transformer, columns in preprocessor.transformers_:
+            if name == 'remainder' and transformer == 'drop':
+                continue
+            if hasattr(transformer, 'get_feature_names_out'):
+                names = transformer.get_feature_names_out(columns)
+                feature_names.extend(names)
+            else:
+                feature_names.extend(columns)
+    except Exception as e:
+        print(f"[WARN] Could not extract feature names: {e}")
         feature_names = [f"f{i}" for i in range(model.n_features_in_)]
 
     importances = None
@@ -161,21 +203,33 @@ def plot_feature_importance(clf, X, top_n=20):
         importances = np.abs(model.coef_[0])
 
     if importances is not None:
-        feat_imp = pd.DataFrame({"feature": feature_names, "importance": importances})
-        feat_imp = feat_imp.sort_values(by="importance", ascending=False).head(top_n)
-
-        plt.figure(figsize=(10, 8))
-        sns.barplot(x="importance", y="feature", data=feat_imp)
-        plt.title(f"Top {top_n} Feature Importances")
-        plt.tight_layout()
-
-        os.makedirs("plots", exist_ok=True)
-        plot_path = os.path.join("plots", "feature_importance.png")
-        plt.savefig(plot_path)
-        print(f"[OK] Saved feature importance plot to {plot_path}")
-        plt.close()
+        _extracted_from_plot_feature_importance_32(feature_names, importances, top_n)
     else:
         print("[WARN] Model does not support feature importance/coefficients.")
+
+
+# TODO Rename this here and in `plot_feature_importance`
+def _extracted_from_plot_feature_importance_32(feature_names, importances, top_n):
+    # Match feature names with importances
+    if len(feature_names) != len(importances):
+        print(f"[WARN] Feature names length ({len(feature_names)}) doesn't match importances length ({len(importances)}). Using generic names.")
+        feature_names = [f"f{i}" for i in range(len(importances))]
+
+    feat_imp = pd.DataFrame({"feature": feature_names, "importance": importances})
+    feat_imp = feat_imp.sort_values(by="importance", ascending=False).head(top_n)
+
+    plt.figure(figsize=(10, 8))
+    plt.barh(feat_imp["feature"], feat_imp["importance"], color='skyblue')
+    plt.gca().invert_yaxis()  # Put highest importance at the top
+    plt.title(f"Top {top_n} Feature Importances")
+    plt.xlabel("Importance Score")
+    plt.tight_layout()
+
+    os.makedirs("plots", exist_ok=True)
+    plot_path = os.path.join("plots", "feature_importance.png")
+    plt.savefig(plot_path)
+    print(f"[OK] Saved feature importance plot to {plot_path}")
+    plt.close()
 
 
 def main():
@@ -226,8 +280,37 @@ def main():
     )
 
     clf.fit(X, y)
+    
+    # Feature importance plot
     plot_feature_importance(clf, X)
+
+    # Prediction distributions
+    train_proba = clf.predict_proba(X)[:, 1]
     test_proba = clf.predict_proba(X_test)[:, 1]
+
+    # Histogram and Density Comparison using Matplotlib
+    plt.figure(figsize=(12, 7))
+    plt.hist(train_proba, bins=50, label="Train", density=True, alpha=0.4, color="blue", histtype='stepfilled')
+    plt.hist(test_proba, bins=50, label="Test", density=True, alpha=0.4, color="orange", histtype='stepfilled')
+    plt.title("Train vs Test Prediction Distributions")
+    plt.xlabel("Predicted Probability (TARGET=1)")
+    plt.ylabel("Density")
+    plt.legend()
+    plt.grid(axis='y', alpha=0.3)
+    plt.tight_layout()
+    dist_plot_path = os.path.join("plots", "train_test_distribution_comparison.png")
+    plt.savefig(dist_plot_path)
+    print(f"[OK] Saved distribution comparison plot to {dist_plot_path}")
+    plt.close()
+
+    # ROC curve (using training data as proxy)
+    plot_roc_curve(y, train_proba, os.path.join("plots", "train_roc_curve.png"))
+
+    # Remove old/redundant plots if they exist from previous runs
+    for old_plot in ["train_prediction_distribution.png", "test_prediction_distribution.png"]:
+        old_path = os.path.join("plots", old_plot)
+        if os.path.exists(old_path):
+            os.remove(old_path)
 
     # Write submission
     ts = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -242,4 +325,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
