@@ -78,9 +78,9 @@ def fix_known_anomalies(df: pd.DataFrame) -> pd.DataFrame:
 def build_pipeline():
     # Identify column types
     # (We'll detect on the fly in main() after reading the dataframe.)
-    def make_preprocessor(X: pd.DataFrame):
-        cat_cols = [c for c in X.columns if X[c].dtype == "object"]
-        num_cols = [c for c in X.columns if c not in cat_cols]
+    def make_preprocessor(x: pd.DataFrame):
+        cat_cols = [c for c in x.columns if x[c].dtype == "object"]
+        num_cols = [c for c in x.columns if c not in cat_cols]
 
         numeric = Pipeline(
             steps=[
@@ -105,7 +105,7 @@ def build_pipeline():
         )
         return preprocessor
 
-    # We build it lazily because we need X columns first.
+    # We build it lazily because we need x columns first.
     return make_preprocessor
 
 def cross_validate_auc(pipeline_builder, X: pd.DataFrame, y: pd.Series, folds: int):
