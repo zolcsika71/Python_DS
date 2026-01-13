@@ -11,7 +11,7 @@ from sklearn.impute import SimpleImputer
 from sklearn.metrics import roc_auc_score, roc_curve, auc
 from sklearn.model_selection import StratifiedKFold
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OneHotEncoder
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.linear_model import LogisticRegression
 
 def try_build_model(prefer_lightgbm: bool):
@@ -31,14 +31,16 @@ def try_build_model(prefer_lightgbm: bool):
                 reg_lambda=1.0,
                 n_jobs=-1,
                 random_state=42,
+                importance_type='gain',
             )
         except Exception as e:
             print(f"[WARN] LightGBM not usable, falling back to LogisticRegression. Reason: {e}")
 
     # Strong, simple baseline that works with sparse one-hot features
+    # Increased max_iter and using StandardScaler in pipeline to help convergence
     return LogisticRegression(
-        solver="saga",
-        max_iter=400,
+        solver="lbfgs",
+        max_iter=1000,
         n_jobs=-1,
         # class_weight="balanced", # optional: try if you want
         random_state=42,
@@ -85,13 +87,14 @@ def build_pipeline():
         numeric = Pipeline(
             steps=[
                 ("imputer", SimpleImputer(strategy="median")),
+                ("scaler", StandardScaler()),
             ]
         )
 
         categorical = Pipeline(
             steps=[
                 ("imputer", SimpleImputer(strategy="most_frequent")),
-                ("onehot", OneHotEncoder(handle_unknown="ignore", sparse_output=True)),
+                ("onehot", OneHotEncoder(handle_unknown="ignore", sparse_output=False)),
             ]
         )
 
@@ -102,8 +105,21 @@ def build_pipeline():
             ],
             remainder="drop",
             sparse_threshold=0.3,
+            verbose_feature_names_out=False,
         )
-        return preprocessor
+        preprocessor.set_output(transform="pandas")
+
+        # Function to clean column names for LightGBM compatibility
+        def clean_column_names(df):
+            import re
+            df.columns = [re.sub(r'[^\w\s]', '', col).replace(' ', '_') for col in df.columns]
+            return df
+
+        from sklearn.preprocessing import FunctionTransformer
+        return Pipeline([
+            ("preprocessor", preprocessor),
+            ("clean_names", FunctionTransformer(clean_column_names, validate=False))
+        ])
 
     # We build it lazily because we need x columns first.
     return make_preprocessor
@@ -182,16 +198,28 @@ def plot_feature_importance(clf, top_n=20):
 
     # Extract feature names after transformation
     try:
-        # Get feature names from ColumnTransformer
-        feature_names = []
-        for name, transformer, columns in preprocessor.transformers_:
-            if name == 'remainder' and transformer == 'drop':
-                continue
-            if hasattr(transformer, 'get_feature_names_out'):
-                names = transformer.get_feature_names_out(columns)
-                feature_names.extend(names)
-            else:
-                feature_names.extend(columns)
+        # Get feature names from the pipeline
+        if hasattr(preprocessor, "named_steps") and "preprocessor" in preprocessor.named_steps:
+            # We have the Pipeline with clean_names FunctionTransformer
+            inner_preprocessor = preprocessor.named_steps["preprocessor"]
+            feature_names = inner_preprocessor.get_feature_names_out().tolist()
+            # Apply same cleaning logic to feature names
+            import re
+            feature_names = [re.sub(r'[^\w\s]', '', col).replace(' ', '_') for col in feature_names]
+        elif hasattr(preprocessor, 'get_feature_names_out'):
+            feature_names = preprocessor.get_feature_names_out().tolist()
+        else:
+            # Fallback to manual extraction
+            feature_names = []
+            transformers = getattr(preprocessor, 'transformers_', [])
+            for name, transformer, columns in transformers:
+                if name == 'remainder' and transformer == 'drop':
+                    continue
+                if hasattr(transformer, 'get_feature_names_out'):
+                    names = transformer.get_feature_names_out(columns)
+                    feature_names.extend(names)
+                else:
+                    feature_names.extend(columns)
     except Exception as e:
         print(f"[WARN] Could not extract feature names: {e}")
         feature_names = [f"f{i}" for i in range(model.n_features_in_)]
