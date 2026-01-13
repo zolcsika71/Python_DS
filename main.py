@@ -108,15 +108,15 @@ def build_pipeline():
     # We build it lazily because we need x columns first.
     return make_preprocessor
 
-def cross_validate_auc(pipeline_builder, X: pd.DataFrame, y: pd.Series, folds: int):
+def cross_validate_auc(pipeline_builder, x: pd.DataFrame, y: pd.Series, folds: int):
     skf = StratifiedKFold(n_splits=folds, shuffle=True, random_state=42)
     aucs = []
 
-    for fold, (tr_idx, va_idx) in enumerate(skf.split(X, y), start=1):
-        X_tr, X_va = X.iloc[tr_idx], X.iloc[va_idx]
+    for fold, (tr_idx, va_idx) in enumerate(skf.split(x, y), start=1):
+        x_tr, x_va = x.iloc[tr_idx], x.iloc[va_idx]
         y_tr, y_va = y.iloc[tr_idx], y.iloc[va_idx]
 
-        preprocessor = pipeline_builder(X_tr)
+        preprocessor = pipeline_builder(x_tr)
         model = try_build_model(prefer_lightgbm=True)
 
         clf = Pipeline(
@@ -126,8 +126,8 @@ def cross_validate_auc(pipeline_builder, X: pd.DataFrame, y: pd.Series, folds: i
             ]
         )
 
-        clf.fit(X_tr, y_tr)
-        proba = clf.predict_proba(X_va)[:, 1]
+        clf.fit(x_tr, y_tr)
+        proba = clf.predict_proba(x_va)[:, 1]
         auc_val = roc_auc_score(y_va, proba)
         aucs.append(auc_val)
         print(f"[CV] Fold {fold}/{folds} AUC: {auc_val:.5f}")
@@ -260,7 +260,7 @@ def main():
     X = train_df.drop(columns=["TARGET"])
     X_test = test_df.copy()
 
-    # Build pipeline builder (needs X columns)
+    # Build pipeline builder (needs x columns)
     pipeline_builder = build_pipeline()
 
     # Cross-validate (optional but very useful in an exam to show methodology)
