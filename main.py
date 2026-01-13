@@ -75,7 +75,7 @@ def fix_known_anomalies(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def build_pipeline(model):
+def build_pipeline():
     # Identify column types
     # (We'll detect on the fly in main() after reading the dataframe.)
     def make_preprocessor(X: pd.DataFrame):
@@ -261,7 +261,7 @@ def main():
     X_test = test_df.copy()
 
     # Build pipeline builder (needs X columns)
-    pipeline_builder = build_pipeline(model=None)
+    pipeline_builder = build_pipeline()
 
     # Cross-validate (optional but very useful in an exam to show methodology)
     print("[INFO] Running cross-validation...")
