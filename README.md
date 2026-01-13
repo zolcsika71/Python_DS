@@ -53,6 +53,8 @@ poetry run python main.py [OPTIONS]
 
 - **Data Preprocessing**: Automatically handles categorical and numerical columns.
 - **Anomaly Handling**: Fixes known anomalies like `DAYS_EMPLOYED = 365243`.
+- **Reproducibility**: Uses a fixed `random_state=42` for consistent results.
+- **Output Storage**: Automatically organizes plots and submissions into dedicated directories.
 - **Cross-Validation**: Performs Stratified K-Fold CV to estimate model performance (AUC).
 - **Visualizations**: Generates plots in the `plots/` directory:
   - `feature_importance.png`: Top feature importances or coefficients.
@@ -79,15 +81,15 @@ The project uses `pytest` for automated testing.
 
 Run all tests:
 ```bash
-poetry run pytest
+poetry run python -m pytest
 ```
 
 *(Note: Ensure you have added test files, e.g., `test_main.py`, as they are expected by the `pytest` command.)*
 
 ## License
 
-TODO: Add license information.
+This project is licensed under the MIT License.
 
 ## Environment Variables
 
-TODO: Add any required environment variables (none identified so far).
+No specific environment variables are required for basic execution.
