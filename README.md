@@ -51,9 +51,10 @@ poetry run python main.py [OPTIONS]
 
 ## Features
 
-- **Data Preprocessing**: Automatically handles categorical and numerical columns.
+- **Data Preprocessing**: Automatically handles categorical and numerical columns. Includes `StandardScaler` for numerical features to ensure model convergence.
 - **Anomaly Handling**: Fixes known anomalies like `DAYS_EMPLOYED = 365243`.
 - **Reproducibility**: Uses a fixed `random_state=42` for consistent results.
+- **Robust Baselines**: Uses optimized `LogisticRegression` (with `lbfgs` solver and increased iterations) or `LightGBM`.
 - **Output Storage**: Automatically organizes plots and submissions into dedicated directories.
 - **Cross-Validation**: Performs Stratified K-Fold CV to estimate model performance (AUC).
 - **Visualizations**: Generates plots in the `plots/` directory:
