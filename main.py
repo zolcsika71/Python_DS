@@ -203,13 +203,12 @@ def plot_feature_importance(clf, top_n=20):
         importances = np.abs(model.coef_[0])
 
     if importances is not None:
-        _extracted_from_plot_feature_importance_32(feature_names, importances, top_n)
+        _plot_importance_data(feature_names, importances, top_n)
     else:
         print("[WARN] Model does not support feature importance/coefficients.")
 
 
-# TODO Rename this here and in `plot_feature_importance`
-def _extracted_from_plot_feature_importance_32(feature_names, importances, top_n):
+def _plot_importance_data(feature_names, importances, top_n):
     # Match feature names with importances
     if len(feature_names) != len(importances):
         print(f"[WARN] Feature names length ({len(feature_names)}) doesn't match importances length ({len(importances)}). Using generic names.")
