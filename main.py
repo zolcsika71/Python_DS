@@ -173,7 +173,7 @@ def plot_roc_curve(y_true, y_probas, out_path):
     plt.close()
 
 
-def plot_feature_importance(clf, X, top_n=20):
+def plot_feature_importance(clf, top_n=20):
     """
     Extracts feature names from the pipeline and plots feature importance if the model supports it.
     """
@@ -282,7 +282,7 @@ def main():
     clf.fit(X, y)
     
     # Feature importance plot
-    plot_feature_importance(clf, X)
+    plot_feature_importance(clf)
 
     # Prediction distributions
     train_proba = clf.predict_proba(X)[:, 1]
