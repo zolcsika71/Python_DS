@@ -37,7 +37,7 @@ def try_build_model(prefer_lightgbm: bool):
             print(f"[WARN] LightGBM not usable, falling back to LogisticRegression. Reason: {e}")
 
     # Strong, simple baseline that works with sparse one-hot features
-    # Increased max_iter and using StandardScaler in pipeline to help convergence
+    # Increased max_iter and using StandardScaler in the pipeline to help convergence
     return LogisticRegression(
         solver="lbfgs",
         max_iter=1000,
@@ -203,7 +203,7 @@ def plot_feature_importance(clf, top_n=20):
             # We have the Pipeline with clean_names FunctionTransformer
             inner_preprocessor = preprocessor.named_steps["preprocessor"]
             feature_names = inner_preprocessor.get_feature_names_out().tolist()
-            # Apply same cleaning logic to feature names
+            # Apply the same cleaning logic to feature names
             import re
             feature_names = [re.sub(r'[^\w\s]', '', col).replace(' ', '_') for col in feature_names]
         elif hasattr(preprocessor, 'get_feature_names_out'):
