@@ -125,3 +125,10 @@ data/
 # Plots
 plots/
 
+# Submissions
+submissions/*.csv
+!submissions/sample_submission.csv
+
+# Presentations
+docs/*.pptx
+
