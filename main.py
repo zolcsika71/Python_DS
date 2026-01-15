@@ -72,7 +72,6 @@ def main():
 
     plot_roc_curve(y, train_proba, os.path.join("plots", "train_roc_curve.png"))
 
-    # Cleanup old plots
     for old_plot in ["train_prediction_distribution.png", "test_prediction_distribution.png"]:
         old_path = os.path.join("plots", old_plot)
         if os.path.exists(old_path):
