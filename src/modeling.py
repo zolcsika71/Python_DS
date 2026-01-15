@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import re
+import logging
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.metrics import roc_auc_score
@@ -8,6 +9,8 @@ from sklearn.model_selection import StratifiedKFold
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler, FunctionTransformer
 from sklearn.linear_model import LogisticRegression
+
+from src.config import logger, LGBM_PARAMS, LOGREG_PARAMS
 
 def try_build_model(prefer_lightgbm: bool):
     """
@@ -17,28 +20,12 @@ def try_build_model(prefer_lightgbm: bool):
     if prefer_lightgbm:
         try:
             from lightgbm import LGBMClassifier
-            return LGBMClassifier(
-                n_estimators=800,
-                learning_rate=0.05,
-                num_leaves=31,
-                subsample=0.8,
-                colsample_bytree=0.8,
-                reg_lambda=1.0,
-                n_jobs=-1,
-                random_state=42,
-                importance_type='gain',
-            )
+            return LGBMClassifier(**LGBM_PARAMS)
         except Exception as e:
-            print(f"[WARN] LightGBM not usable, falling back to LogisticRegression. Reason: {e}")
+            logger.warning(f"LightGBM not usable, falling back to LogisticRegression. Reason: {e}")
 
     # Strong, simple baseline that works with sparse one-hot features
-    # Increased max_iter and using StandardScaler in the pipeline to help convergence
-    return LogisticRegression(
-        solver="lbfgs",
-        max_iter=1000,
-        n_jobs=-1,
-        random_state=42,
-    )
+    return LogisticRegression(**LOGREG_PARAMS)
 
 def clean_column_names_func(df):
     """Function to clean column names for LightGBM compatibility."""
@@ -105,7 +92,9 @@ def cross_validate_auc(x: pd.DataFrame, y: pd.Series, folds: int, prefer_lightgb
         proba = clf.predict_proba(x_va)[:, 1]
         auc_val = roc_auc_score(y_va, proba)
         arcs.append(auc_val)
-        print(f"[CV] Fold {fold}/{folds} AUC: {auc_val:.5f}")
+        logger.info(f"CV Fold {fold}/{folds} AUC: {auc_val:.5f}")
 
-    print(f"[CV] Mean AUC: {np.mean(arcs):.5f}  Std: {np.std(arcs):.5f}")
-    return float(np.mean(arcs))
+    mean_auc = np.mean(arcs)
+    std_auc = np.std(arcs)
+    logger.info(f"CV Mean AUC: {mean_auc:.5f}  Std: {std_auc:.5f}")
+    return float(mean_auc)

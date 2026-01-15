@@ -15,11 +15,13 @@ This project implements a modular machine learning pipeline for the [Home Credit
 
 ```text
 .
-├── main.py                # Orchestration script (entry point)
+├── main.py                # Thin CLI entry point
 ├── src/
+│   ├── config.py          # Centralized configuration and logging
 │   ├── data_processing.py # Data loading and cleaning logic
-│   ├── modeling.py        # Pipeline building and CV logic
-│   └── visualization.py   # Plotting and evaluation functions
+│   ├── modeling.py        # Pipeline building and model definitions
+│   ├── visualization.py   # Plotting and evaluation functions
+│   └── orchestrator.py    # Workflow orchestration
 ├── data/                  # Input datasets (application_train.csv, application_test.csv)
 ├── plots/                 # Generated visualizations (ROC, Importance, etc.)
 ├── submissions/           # Timestamped submission CSVs

@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.metrics import roc_curve, auc
+from src.config import logger
 
 def plot_prediction_distribution(probes, out_path, title="Distribution of Predicted Probabilities"):
     """
@@ -16,7 +17,7 @@ def plot_prediction_distribution(probes, out_path, title="Distribution of Predic
     plt.ylabel("Density")
     plt.tight_layout()
     plt.savefig(out_path)
-    print(f"[OK] Saved prediction distribution plot to {out_path}")
+    logger.info(f"Saved prediction distribution plot to {out_path}")
     plt.close()
 
 def plot_roc_curve(y_true, y_probes, out_path):
@@ -37,7 +38,7 @@ def plot_roc_curve(y_true, y_probes, out_path):
     plt.legend(loc="lower right")
     plt.tight_layout()
     plt.savefig(out_path)
-    print(f"[OK] Saved ROC curve plot to {out_path}")
+    logger.info(f"Saved ROC curve plot to {out_path}")
     plt.close()
 
 def plot_feature_importance(clf, top_n=20, out_dir="plots"):
@@ -67,7 +68,7 @@ def plot_feature_importance(clf, top_n=20, out_dir="plots"):
                 else:
                     feature_names.extend(columns)
     except Exception as e:
-        print(f"[WARN] Could not extract feature names: {e}")
+        logger.warning(f"Could not extract feature names: {e}")
         feature_names = [f"f{i}" for i in range(model.n_features_in_)]
 
     importances = None
@@ -79,11 +80,11 @@ def plot_feature_importance(clf, top_n=20, out_dir="plots"):
     if importances is not None:
         _plot_importance_data(feature_names, importances, top_n, out_dir)
     else:
-        print("[WARN] Model does not support feature importance/coefficients.")
+        logger.warning("Model does not support feature importance/coefficients.")
 
 def _plot_importance_data(feature_names, importances, top_n, out_dir):
     if len(feature_names) != len(importances):
-        print(f"[WARN] Feature names length ({len(feature_names)}) doesn't match importances length ({len(importances)}). Using generic names.")
+        logger.warning(f"Feature names length ({len(feature_names)}) doesn't match importances length ({len(importances)}). Using generic names.")
         feature_names = [f"f{i}" for i in range(len(importances))]
 
     feat_imp = pd.DataFrame({"feature": feature_names, "importance": importances})
@@ -99,7 +100,7 @@ def _plot_importance_data(feature_names, importances, top_n, out_dir):
     os.makedirs(out_dir, exist_ok=True)
     plot_path = os.path.join(out_dir, "feature_importance.png")
     plt.savefig(plot_path)
-    print(f"[OK] Saved feature importance plot to {plot_path}")
+    logger.info(f"Saved feature importance plot to {plot_path}")
     plt.close()
 
 def plot_train_test_distribution(train_proba, test_proba, out_path):
@@ -116,5 +117,5 @@ def plot_train_test_distribution(train_proba, test_proba, out_path):
     plt.grid(axis='y', alpha=0.3)
     plt.tight_layout()
     plt.savefig(out_path)
-    print(f"[OK] Saved distribution comparison plot to {out_path}")
+    logger.info(f"Saved distribution comparison plot to {out_path}")
     plt.close()
