@@ -44,11 +44,11 @@ The project uses `pytest` for automated testing.
     - If a test requires specific scikit-learn functionality, ensure it's compatible with the installed version (currently using `1.7.2` to avoid internal import issues in some environments).
 
 3.  **Example Test**:
-    The following test verifies the `fix_known_anomalies` function in `main.py`:
+    The following test verifies the `fix_known_anomalies` function in `src/data_processing.py`:
     ```python
     import pandas as pd
     import numpy as np
-    from main import fix_known_anomalies
+    from src.data_processing import fix_known_anomalies
 
     def test_fix_known_anomalies():
         # DAYS_EMPLOYED 365243 is a known anomaly placeholder in this dataset
@@ -66,8 +66,15 @@ The project uses `pytest` for automated testing.
     ```
 
 #### Additional Development Information
+- **Modular Architecture**: The project is organized into modules under `src/`:
+    - `config.py`: Centralized configuration, logging setup, and hyperparameters.
+    - `data_processing.py`: Data loading and cleaning.
+    - `modeling.py`: Pipeline building and cross-validation.
+    - `visualization.py`: Plotting functions.
+    - `orchestrator.py`: High-level workflow orchestration.
 - **Code Style**: Follow standard PEP 8 guidelines. The project uses a functional approach for data processing steps.
-- **Model Pipeline**: The `build_pipeline` function dynamically creates a `ColumnTransformer` based on the input dataframe's types (categorical vs. numeric).
-- **Anomalies**: Always use `fix_known_anomalies` after loading the data to handle specific placeholders like `365243` in `DAYS_EMPLOYED`.
-- **Output**: Submissions are saved in the `submissions/` directory with a timestamped filename by default.
-- **Plots**: Training results, including ROC curves and feature importance, are saved in the `plots/` directory.
+- **Logging**: Use the centralized `logger` from `src.config`. `INFO` level messages are color-coded green in the console.
+- **Model Pipeline**: The `build_pipeline` function in `src/modeling.py` dynamically creates a `ColumnTransformer` based on the input dataframe's types.
+- **Anomalies**: Always use `fix_known_anomalies` (from `src.data_processing`) after loading the data to handle specific placeholders like `365243` in `DAYS_EMPLOYED`.
+- **Output**: Submissions are saved in the `submissions/` directory (configured in `src/config.py`).
+- **Plots**: Training results are saved in the `plots/` directory (configured in `src/config.py`).
