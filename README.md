@@ -9,6 +9,7 @@ This project implements a modular machine learning pipeline for the [Home Credit
 - **Anomaly Detection**: Specialized handling for known dataset anomalies (e.g., `DAYS_EMPLOYED` placeholders).
 - **Flexible Modeling**: Supports both `LogisticRegression` as a stable baseline and `LightGBM` for high performance.
 - **Evaluation & Visualization**: Comprehensive ROC-AUC analysis, feature importance plots, and prediction distribution comparisons.
+- **Enhanced Logging**: Console output features color-coded levels, with `INFO` messages highlighted in green for better readability.
 - **Automated Workflow**: End-to-end execution from raw data to submission-ready CSV files.
 
 ## 📁 Project Structure
@@ -76,9 +77,9 @@ poetry run python main.py --prefer-lightgbm --folds 5
 ## 🧪 Testing
 The project uses `pytest`. To run the tests:
 ```bash
-# Note: You might need to install pytest in the poetry env if not present
 poetry run python -m pytest
 ```
+Note: If `pytest` is not installed in your environment, you can add it via `poetry add --group dev pytest`.
 
 ## 📊 Visualizations
 After execution, check the `plots/` directory for:
