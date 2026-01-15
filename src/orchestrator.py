@@ -43,7 +43,10 @@ def run_pipeline(data_dir, folds, prefer_lightgbm, custom_out=None):
 
     # 4. Train Final Model
     logger.info("Training final model on full training data...")
-    preprocessor = build_pipeline(x_train)
+    cat_cols = [c for c in x_train.columns if x_train[c].dtype == "object"]
+    num_cols = [c for c in x_train.columns if c not in cat_cols]
+    
+    preprocessor = build_pipeline(cat_cols, num_cols)
     model = try_build_model(prefer_lightgbm=prefer_lightgbm)
 
     clf = Pipeline(

@@ -1,5 +1,7 @@
 import logging
 import os
+from dataclasses import dataclass, field
+from typing import Dict, Any
 
 # Logging Configuration
 class ColorFormatter(logging.Formatter):
@@ -8,19 +10,21 @@ class ColorFormatter(logging.Formatter):
 
     def format(self, record):
         if record.levelno == logging.INFO:
-            # Color the whole line green
             formatted_msg = super().format(record)
             return f"{self.GREEN}{formatted_msg}{self.RESET}"
         return super().format(record)
 
-handler = logging.StreamHandler()
-handler.setFormatter(ColorFormatter('%(asctime)s [%(levelname)s] %(message)s', datefmt='%Y-%m-%d %H:%M:%S'))
+def setup_logging():
+    handler = logging.StreamHandler()
+    handler.setFormatter(ColorFormatter('%(asctime)s [%(levelname)s] %(message)s', datefmt='%Y-%m-%d %H:%M:%S'))
+    
+    root_logger = logging.getLogger()
+    if not root_logger.handlers:
+        root_logger.setLevel(logging.INFO)
+        root_logger.addHandler(handler)
+    return logging.getLogger("src")
 
-logging.basicConfig(
-    level=logging.INFO,
-    handlers=[handler]
-)
-logger = logging.getLogger(__name__)
+logger = setup_logging()
 
 # Directory Configurations
 DATA_DIR = "data"
@@ -31,25 +35,28 @@ PLOTS_DIR = "plots"
 TARGET_COL = "TARGET"
 ID_COL = "SK_ID_CURR"
 
-# Model Hyperparameters (Defaults)
-LGBM_PARAMS = {
-    "n_estimators": 800,
-    "learning_rate": 0.05,
-    "num_leaves": 31,
-    "subsample": 0.8,
-    "colsample_bytree": 0.8,
-    "reg_lambda": 1.0,
-    "n_jobs": -1,
-    "random_state": 42,
-    "importance_type": 'gain',
-}
+@dataclass(frozen=True)
+class ModelConfig:
+    lgbm_params: Dict[str, Any] = field(default_factory=lambda: {
+        "n_estimators": 800,
+        "learning_rate": 0.05,
+        "num_leaves": 31,
+        "subsample": 0.8,
+        "colsample_bytree": 0.8,
+        "reg_lambda": 1.0,
+        "n_jobs": -1,
+        "random_state": 42,
+        "importance_type": 'gain',
+    })
+    
+    logreg_params: Dict[str, Any] = field(default_factory=lambda: {
+        "solver": "lbfgs",
+        "max_iter": 1000,
+        "n_jobs": -1,
+        "random_state": 42,
+    })
 
-LOGREG_PARAMS = {
-    "solver": "lbfgs",
-    "max_iter": 1000,
-    "n_jobs": -1,
-    "random_state": 42,
-}
+CONFIG = ModelConfig()
 
 def setup_directories():
     """Ensures that necessary directories exist."""

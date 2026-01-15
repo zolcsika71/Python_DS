@@ -50,12 +50,20 @@ def plot_feature_importance(clf, top_n=20, out_dir="plots"):
 
     # Extract feature names after transformation
     try:
-        if hasattr(preprocessor, "named_steps") and "preprocessor" in preprocessor.named_steps:
+        # Check if it's our Pipeline or a specific step
+        if hasattr(preprocessor, "get_feature_names_out"):
+            try:
+                feature_names = preprocessor.get_feature_names_out().tolist()
+            except Exception:
+                # If preprocessor is a Pipeline, maybe it's the last step that fails
+                if hasattr(preprocessor, "steps"):
+                    # Try to get names from all but last if last is FunctionTransformer
+                    feature_names = preprocessor[:-1].get_feature_names_out().tolist()
+                else:
+                    raise
+        elif hasattr(preprocessor, "named_steps") and "preprocessor" in preprocessor.named_steps:
             inner_preprocessor = preprocessor.named_steps["preprocessor"]
             feature_names = inner_preprocessor.get_feature_names_out().tolist()
-            feature_names = [re.sub(r'[^\w\s]', '', col).replace(' ', '_') for col in feature_names]
-        elif hasattr(preprocessor, 'get_feature_names_out'):
-            feature_names = preprocessor.get_feature_names_out().tolist()
         else:
             feature_names = []
             transformers = getattr(preprocessor, 'transformers_', [])
@@ -67,9 +75,14 @@ def plot_feature_importance(clf, top_n=20, out_dir="plots"):
                     feature_names.extend(names)
                 else:
                     feature_names.extend(columns)
+        
+        # Post-process names to match clean_column_names_func if generic names weren't used
+        if feature_names:
+             feature_names = [re.sub(r'[^\w\s]', '', col).replace(' ', '_') for col in feature_names]
+
     except Exception as e:
         logger.warning(f"Could not extract feature names: {e}")
-        feature_names = [f"f{i}" for i in range(model.n_features_in_)]
+        feature_names = [f"f{i}" for i in range(getattr(model, "n_features_in_", 0))]
 
     importances = None
     if hasattr(model, "feature_importances_"):
