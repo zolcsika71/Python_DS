@@ -59,6 +59,6 @@ class ModelConfig:
 CONFIG = ModelConfig()
 
 def setup_directories():
-    """Ensures that necessary directories exist."""
+    """Ensures that the necessary directories exist."""
     for directory in [SUBMISSIONS_DIR, PLOTS_DIR]:
         os.makedirs(directory, exist_ok=True)
