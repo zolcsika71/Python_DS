@@ -89,8 +89,6 @@ After execution, check the `plots/` directory for:
 
 ## 🎯 Target Variable Identification
 
-As a data analyst specializing in project management and data interpretation, the following target variable has been identified for this project:
-
 - **Project Context**: The primary objective is to predict whether an applicant will encounter difficulties repaying a loan, helping Home Credit broaden financial inclusion for the unbanked population by leveraging alternative data.
 - **Key Metrics**: 
     - *Quantitative*: `AMT_INCOME_TOTAL`, `AMT_CREDIT`, `DAYS_EMPLOYED`, and `EXT_SOURCE` scores.
