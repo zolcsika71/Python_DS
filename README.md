@@ -87,5 +87,16 @@ After execution, check the `plots/` directory for:
 - `train_roc_curve.png`: Shows the model's performance on the training set.
 - `train_test_distribution_comparison.png`: Ensures consistency between train and test predictions.
 
+## 🎯 Target Variable Identification
+
+As a data analyst specializing in project management and data interpretation, the following target variable has been identified for this project:
+
+- **Project Context**: The primary objective is to predict whether an applicant will encounter difficulties repaying a loan, helping Home Credit broaden financial inclusion for the unbanked population by leveraging alternative data.
+- **Key Metrics**: 
+    - *Quantitative*: `AMT_INCOME_TOTAL`, `AMT_CREDIT`, `DAYS_EMPLOYED`, and `EXT_SOURCE` scores.
+    - *Qualitative*: `NAME_EDUCATION_TYPE`, `OCCUPATION_TYPE`, and family status.
+- **Selection Process**: The target variable is **`TARGET`**. It is a binary indicator (1 for payment difficulties, 0 otherwise). This is the most important variable as it directly measures the financial risk and success of the loan approval process.
+- **Examples**: Similar to the LendingClub Loan Analysis or Fannie Mae Mortgage Default Prediction, where a binary status allows for identifying high-risk patterns to improve portfolio health.
+
 ## ⚖️ License
 This project is licensed under the MIT License.
