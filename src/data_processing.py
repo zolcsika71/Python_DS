@@ -7,21 +7,22 @@ def load_data(data_dir: str):
     """
     Loads application_train.csv and application_test.csv from the data directory.
     """
-    train_path = os.path.join(data_dir, "application_train.csv")
-    test_path = os.path.join(data_dir, "application_test.csv")
+    files = {
+        "train": os.path.join(data_dir, "application_train.csv"),
+        "test": os.path.join(data_dir, "application_test.csv")
+    }
 
-    if not os.path.exists(train_path) or not os.path.exists(test_path):
-        logger.error(f"Missing required files in {data_dir}")
-        raise FileNotFoundError(
-            "Missing required files. Expected:\n"
-            f"  {train_path}\n"
-            f"  {test_path}\n"
-            "Download/unzip Kaggle data into the data/ folder."
-        )
+    for name, path in files.items():
+        if not os.path.exists(path):
+            logger.error(f"Missing {name} file: {path}")
+            raise FileNotFoundError(
+                f"Missing required {name} file at {path}. "
+                "Ensure Kaggle data is in the data/ folder."
+            )
 
     logger.info(f"Loading data from {data_dir}...")
-    train_df = pd.read_csv(train_path)
-    test_df = pd.read_csv(test_path)
+    train_df = pd.read_csv(files["train"])
+    test_df = pd.read_csv(files["test"])
     logger.info(f"Loaded train: {train_df.shape}, test: {test_df.shape}")
     return train_df, test_df
 

@@ -27,16 +27,26 @@ def setup_logging():
 logger = setup_logging()
 
 # Directory Configurations
-DATA_DIR = "data"
-SUBMISSIONS_DIR = "submissions"
-PLOTS_DIR = "plots"
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DATA_DIR = os.path.join(BASE_DIR, "data")
+SUBMISSIONS_DIR = os.path.join(BASE_DIR, "submissions")
+PLOTS_DIR = os.path.join(BASE_DIR, "plots")
 
 # Dataset Constants
 TARGET_COL = "TARGET"
 ID_COL = "SK_ID_CURR"
 
 @dataclass(frozen=True)
+class PathConfig:
+    data_dir: str = DATA_DIR
+    submissions_dir: str = SUBMISSIONS_DIR
+    plots_dir: str = PLOTS_DIR
+
+@dataclass(frozen=True)
 class ModelConfig:
+    paths: PathConfig = field(default_factory=PathConfig)
+    target_col: str = TARGET_COL
+    id_col: str = ID_COL
     lgbm_params: Dict[str, Any] = field(default_factory=lambda: {
         "n_estimators": 800,
         "learning_rate": 0.05,
@@ -58,7 +68,7 @@ class ModelConfig:
 
 CONFIG = ModelConfig()
 
-def setup_directories():
+def setup_directories(config: ModelConfig = CONFIG):
     """Ensures that the necessary directories exist."""
-    for directory in [SUBMISSIONS_DIR, PLOTS_DIR]:
+    for directory in [config.paths.submissions_dir, config.paths.plots_dir]:
         os.makedirs(directory, exist_ok=True)

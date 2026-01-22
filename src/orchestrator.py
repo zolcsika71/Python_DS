@@ -3,20 +3,60 @@ from datetime import datetime
 import pandas as pd
 from sklearn.pipeline import Pipeline
 
-from src.config import logger, TARGET_COL, ID_COL, PLOTS_DIR, SUBMISSIONS_DIR, setup_directories
+from src.config import logger, CONFIG, ModelConfig, setup_directories
 from src.data_processing import load_data, fix_known_anomalies
-from src.modeling import try_build_model, build_pipeline, cross_validate_auc
+from src.modeling import build_pipeline, cross_validate_auc
 from src.visualization import (
     plot_feature_importance,
     plot_roc_curve,
     plot_train_test_distribution
 )
 
-def run_pipeline(data_dir, folds, prefer_lightgbm, custom_out=None):
+def analyze_top_10_targets(submission_df: pd.DataFrame, config: ModelConfig):
+    """
+    Identifies and visualizes the top 10 TARGET values closest to 1.
+    """
+    logger.info("Identifying top 10 TARGET values closest to 1...")
+    df = submission_df.copy()
+    df['dist_to_1'] = (df['TARGET'] - 1).abs()
+    
+    top_10_df = df.nsmallest(10, 'dist_to_1').copy()
+    top_10_cleaned = top_10_df[['SK_ID_CURR', 'TARGET']].reset_index(drop=True)
+    
+    # Visualization
+    import matplotlib.pyplot as plt
+    plt.figure(figsize=(12, 6))
+    plot_df = top_10_cleaned.sort_values(by='TARGET', ascending=False)
+    bars = plt.bar(plot_df['SK_ID_CURR'].astype(str), plot_df['TARGET'], color='salmon')
+    plt.axhline(y=1, color='r', linestyle='--', label='Target Value 1.0')
+    plt.xlabel('SK_ID_CURR (Customer ID)')
+    plt.ylabel('TARGET Value (Probability)')
+    plt.title('Top 10 TARGET Values Closest to 1')
+    plt.xticks(rotation=45)
+    plt.ylim(0, 1.1)
+    plt.legend()
+    for bar in bars:
+        yval = bar.get_height()
+        plt.text(bar.get_x() + bar.get_width()/2, yval + 0.01, f'{yval:.4f}', ha='center', va='bottom')
+    plt.tight_layout()
+    
+    plot_path = os.path.join(config.paths.plots_dir, "top_10_targets_closest_to_1.png")
+    plt.savefig(plot_path)
+    logger.info(f"Top 10 visualization saved to {plot_path}")
+    plt.close()
+
+    output_csv = os.path.join(config.paths.submissions_dir, "top_10_closest_targets.csv")
+    top_10_cleaned.to_csv(output_csv, index=False)
+    logger.info(f"Top 10 dataset saved to {output_csv}")
+    
+    return top_10_cleaned
+
+def run_pipeline(data_dir=None, folds=3, prefer_lightgbm=True, custom_out=None, config: ModelConfig = CONFIG):
     """
     Orchestrates the full machine learning pipeline.
     """
-    setup_directories()
+    setup_directories(config)
+    data_dir = data_dir or config.paths.data_dir
 
     # 1. Load Data
     train_df, test_df = load_data(data_dir)
@@ -25,20 +65,23 @@ def run_pipeline(data_dir, folds, prefer_lightgbm, custom_out=None):
     train_df = fix_known_anomalies(train_df)
     test_df = fix_known_anomalies(test_df)
 
-    if TARGET_COL not in train_df.columns:
-        raise ValueError(f"Training file must include {TARGET_COL} column.")
+    target_col = config.target_col
+    id_col = config.id_col
 
-    if ID_COL not in train_df.columns or ID_COL not in test_df.columns:
-        raise ValueError(f"Expected {ID_COL} column in both train and test.")
+    if target_col not in train_df.columns:
+        raise ValueError(f"Training file must include {target_col} column.")
 
-    y = train_df[TARGET_COL].astype(int)
-    test_ids = test_df[ID_COL]
+    if id_col not in train_df.columns or id_col not in test_df.columns:
+        raise ValueError(f"Expected {id_col} column in both train and test.")
 
-    x_train = train_df.drop(columns=[TARGET_COL])
+    y = train_df[target_col].astype(int)
+    test_ids = test_df[id_col]
+
+    x_train = train_df.drop(columns=[target_col])
     x_test = test_df.copy()
 
     # 3. Cross-validate
-    logger.info("Running cross-validation...")
+    logger.info(f"Running {folds}-fold cross-validation...")
     _ = cross_validate_auc(x_train, y, folds=folds, prefer_lightgbm=prefer_lightgbm)
 
     # 4. Train Final Model
@@ -46,44 +89,34 @@ def run_pipeline(data_dir, folds, prefer_lightgbm, custom_out=None):
     cat_cols = [c for c in x_train.columns if x_train[c].dtype == "object"]
     num_cols = [c for c in x_train.columns if c not in cat_cols]
     
-    preprocessor = build_pipeline(cat_cols, num_cols)
-    model = try_build_model(prefer_lightgbm=prefer_lightgbm)
-
-    clf = Pipeline(
-        steps=[
-            ("prep", preprocessor),
-            ("model", model),
-        ]
-    )
-
+    clf = build_pipeline(cat_cols, num_cols, prefer_lightgbm=prefer_lightgbm)
     clf.fit(x_train, y)
     
     # 5. Visualizations & Evaluation
-    plot_feature_importance(clf, out_dir=PLOTS_DIR)
+    plots_dir = config.paths.plots_dir
+    plot_feature_importance(clf, out_dir=plots_dir)
 
     train_proba = clf.predict_proba(x_train)[:, 1]
     test_proba = clf.predict_proba(x_test)[:, 1]
 
-    dist_plot_path = os.path.join(PLOTS_DIR, "train_test_distribution_comparison.png")
+    dist_plot_path = os.path.join(plots_dir, "train_test_distribution_comparison.png")
     plot_train_test_distribution(train_proba, test_proba, dist_plot_path)
 
-    roc_plot_path = os.path.join(PLOTS_DIR, "train_roc_curve.png")
+    roc_plot_path = os.path.join(plots_dir, "train_roc_curve.png")
     plot_roc_curve(y, train_proba, roc_plot_path)
-
-    # Cleanup old plots if they exist
-    for old_plot in ["train_prediction_distribution.png", "test_prediction_distribution.png"]:
-        old_path = os.path.join(PLOTS_DIR, old_plot)
-        if os.path.exists(old_path):
-            os.remove(old_path)
 
     # 6. Write Submission
     ts = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    out_path = custom_out or os.path.join(SUBMISSIONS_DIR, f"submission_{ts}.csv")
+    out_path = custom_out or os.path.join(config.paths.submissions_dir, f"submission_{ts}.csv")
 
-    sub = pd.DataFrame({ID_COL: test_ids, TARGET_COL: test_proba})
+    sub = pd.DataFrame({id_col: test_ids, target_col: test_proba})
     sub.to_csv(out_path, index=False)
 
     logger.info(f"Wrote submission: {out_path}")
-    print(sub.head(5))
+    
+    # 7. Analyze Top 10 Closest Targets (CLI output requirement)
+    top_10 = analyze_top_10_targets(sub, config)
+    print("\nTop 10 TARGET values closest to 1 (from top_10_closest_targets.csv):")
+    print(top_10.to_string(index=False))
 
     return out_path

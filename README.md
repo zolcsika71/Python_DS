@@ -31,11 +31,14 @@ The codebase is organized as follows:
 
 - **`main.py`**: The primary entry point for the application. It handles Command Line Interface (CLI) arguments and triggers the orchestration logic.
 - **`src/`**: Contains the core logic of the pipeline, divided into specialized modules.
-    - **`config.py`**: Centralized configuration, including hyperparameters, directory paths, and the logging system.
+    - **`config.py`**: Centralized configuration using structured dataclasses (`ModelConfig`, `PathConfig`).
     - **`data_processing.py`**: Functions for reading raw data and performing initial cleaning/anomaly fixing.
-    - **`modeling.py`**: Logic for building Scikit-learn pipelines, model selection, and cross-validation.
+    - **`modeling.py`**: Logic for building Scikit-learn pipelines including modeling steps and cross-validation.
     - **`visualization.py`**: Utilities for creating diagnostic plots (ROC curves, importance charts, etc.).
     - **`orchestrator.py`**: Defines the high-level workflow that connects all other modules.
+- **`scripts/`**: Useful post-processing scripts.
+    - **`process_target.py`**: Post-processes submission files.
+    - **`top_10_analysis.py`**: Analyzes and visualizes the top 10 most confident predictions.
 - **`data/`**: Directory for input CSV files (`application_train.csv`, `application_test.csv`).
 - **`plots/`**: Automatically generated directory where training visualizations are saved.
 - **`submissions/`**: Automatically generated directory for output CSV files ready for Kaggle submission.

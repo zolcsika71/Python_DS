@@ -50,39 +50,21 @@ def plot_feature_importance(clf, top_n=20, out_dir="plots"):
 
     # Extract feature names after transformation
     try:
-        # Check if it's our Pipeline or a specific step
-        if hasattr(preprocessor, "get_feature_names_out"):
-            try:
-                feature_names = preprocessor.get_feature_names_out().tolist()
-            except Exception:
-                # If preprocessor is a Pipeline, maybe it's the last step that fails
-                if hasattr(preprocessor, "steps"):
-                    # Try to get names from all but last if last is FunctionTransformer
-                    feature_names = preprocessor[:-1].get_feature_names_out().tolist()
-                else:
-                    raise
-        elif hasattr(preprocessor, "named_steps") and "preprocessor" in preprocessor.named_steps:
-            inner_preprocessor = preprocessor.named_steps["preprocessor"]
-            feature_names = inner_preprocessor.get_feature_names_out().tolist()
-        else:
-            feature_names = []
-            transformers = getattr(preprocessor, 'transformers_', [])
-            for name, transformer, columns in transformers:
-                if name == 'remainder' and transformer == 'drop':
-                    continue
-                if hasattr(transformer, 'get_feature_names_out'):
-                    names = transformer.get_feature_names_out(columns)
-                    feature_names.extend(names)
-                else:
-                    feature_names.extend(columns)
+        # Our pipeline structure: prep -> clean_names -> model
+        # 'prep' is a ColumnTransformer
+        feature_names = preprocessor.get_feature_names_out().tolist()
         
-        # Post-process names to match clean_column_names_func if generic names weren't used
-        if feature_names:
-             feature_names = [re.sub(r'[^\w\s]', '', col).replace(' ', '_') for col in feature_names]
+        # Post-process names to match clean_column_names_func
+        feature_names = [re.sub(r'[^\w\s]', '', col).replace(' ', '_') for col in feature_names]
 
     except Exception as e:
-        logger.warning(f"Could not extract feature names: {e}")
-        feature_names = [f"f{i}" for i in range(getattr(model, "n_features_in_", 0))]
+        logger.warning(f"Could not extract feature names: {e}. Using generic names.")
+        n_features = getattr(model, "n_features_in_", 0)
+        if n_features == 0 and hasattr(model, "feature_importances_"):
+            n_features = len(model.feature_importances_)
+        elif n_features == 0 and hasattr(model, "coef_"):
+            n_features = model.coef_.shape[1]
+        feature_names = [f"f{i}" for i in range(n_features)]
 
     importances = None
     if hasattr(model, "feature_importances_"):

@@ -32,9 +32,9 @@ def clean_column_names_func(df):
     df.columns = [re.sub(r'[^\w\s]', '', col).replace(' ', '_') for col in df.columns]
     return df
 
-def build_pipeline(cat_cols, num_cols):
+def build_pipeline(cat_cols, num_cols, prefer_lightgbm: bool = True):
     """
-    Builds a preprocessing and modeling pipeline.
+    Builds a full preprocessing and modeling pipeline.
     """
     numeric = Pipeline(
         steps=[
@@ -61,9 +61,12 @@ def build_pipeline(cat_cols, num_cols):
     )
     preprocessor.set_output(transform="pandas")
 
+    model = try_build_model(prefer_lightgbm=prefer_lightgbm)
+
     return Pipeline([
-        ("preprocessor", preprocessor),
-        ("clean_names", FunctionTransformer(clean_column_names_func, validate=False))
+        ("prep", preprocessor),
+        ("clean_names", FunctionTransformer(clean_column_names_func, validate=False)),
+        ("model", model)
     ])
 
 def cross_validate_auc(x: pd.DataFrame, y: pd.Series, folds: int, prefer_lightgbm: bool = True):
@@ -77,15 +80,7 @@ def cross_validate_auc(x: pd.DataFrame, y: pd.Series, folds: int, prefer_lightgb
         x_tr, x_va = x.iloc[tr_idx], x.iloc[va_idx]
         y_tr, y_va = y.iloc[tr_idx], y.iloc[va_idx]
 
-        preprocessor = build_pipeline(cat_cols, num_cols)
-        model = try_build_model(prefer_lightgbm=prefer_lightgbm)
-
-        clf = Pipeline(
-            steps=[
-                ("prep", preprocessor),
-                ("model", model),
-            ]
-        )
+        clf = build_pipeline(cat_cols, num_cols, prefer_lightgbm=prefer_lightgbm)
 
         clf.fit(x_tr, y_tr)
         proba = clf.predict_proba(x_va)[:, 1]

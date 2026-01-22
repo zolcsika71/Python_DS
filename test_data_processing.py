@@ -15,3 +15,7 @@ def test_fix_known_anomalies():
     # Check if the flag column is created correctly
     assert fixed_df.loc[1, 'DAYS_EMPLOYED_ANOM'] == 1
     assert fixed_df.loc[0, 'DAYS_EMPLOYED_ANOM'] == 0
+
+if __name__ == "__main__":
+    test_fix_known_anomalies()
+    print("test_fix_known_anomalies passed!")

@@ -1,6 +1,5 @@
 import pandas as pd
 import numpy as np
-import pytest
 from sklearn.pipeline import Pipeline
 from src.modeling import build_pipeline, try_build_model
 
@@ -13,13 +12,17 @@ def test_build_pipeline():
     cat_cols = ['B']
     num_cols = ['A', 'C']
     
+    # In refactored code, build_pipeline returns a pipeline with a model
     pipeline = build_pipeline(cat_cols, num_cols)
     assert isinstance(pipeline, Pipeline)
     
-    transformed = pipeline.fit_transform(df)
-    assert 'B_x' in transformed.columns or 'B' in transformed.columns # Depends on onehot output
-    assert 'A' in transformed.columns
-    assert 'C' in transformed.columns
+    # We need a target for fit
+    y = pd.Series([0, 1, 0])
+    pipeline.fit(df, y)
+    
+    # Check if we can predict
+    proba = pipeline.predict_proba(df)
+    assert proba.shape == (3, 2)
 
 def test_try_build_model():
     model_logreg = try_build_model(prefer_lightgbm=False)
@@ -29,3 +32,9 @@ def test_try_build_model():
     # LightGBM might not be installed in all environments, so we just check it doesn't crash
     model_lgbm = try_build_model(prefer_lightgbm=True)
     assert model_lgbm is not None
+
+if __name__ == "__main__":
+    test_build_pipeline()
+    print("test_build_pipeline passed!")
+    test_try_build_model()
+    print("test_try_build_model passed!")
