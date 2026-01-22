@@ -98,6 +98,29 @@ def _plot_importance_data(feature_names, importances, top_n, out_dir):
     logger.info(f"Saved feature importance plot to {plot_path}")
     plt.close()
 
+def plot_top_10_closest_targets(top_10_df, out_path):
+    """
+    Visualizes the top 10 TARGET values closest to 1.
+    """
+    import matplotlib.pyplot as plt
+    plt.figure(figsize=(12, 6))
+    plot_df = top_10_df.sort_values(by='TARGET', ascending=False)
+    bars = plt.bar(plot_df['SK_ID_CURR'].astype(str), plot_df['TARGET'], color='salmon')
+    plt.axhline(y=1, color='r', linestyle='--', label='Target Value 1.0')
+    plt.xlabel('SK_ID_CURR (Customer ID)')
+    plt.ylabel('TARGET Value (Probability)')
+    plt.title('Top 10 TARGET Values Closest to 1')
+    plt.xticks(rotation=45)
+    plt.ylim(0, 1.1)
+    plt.legend()
+    for bar in bars:
+        yval = bar.get_height()
+        plt.text(bar.get_x() + bar.get_width()/2, yval + 0.01, f'{yval:.4f}', ha='center', va='bottom')
+    plt.tight_layout()
+    plt.savefig(out_path)
+    logger.info(f"Top 10 visualization saved to {out_path}")
+    plt.close()
+
 def plot_train_test_distribution(train_proba, test_proba, out_path):
     """
     Plots and compares the distribution of predicted probabilities for train and test sets.

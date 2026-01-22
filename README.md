@@ -36,9 +36,8 @@ The codebase is organized as follows:
     - **`modeling.py`**: Logic for building Scikit-learn pipelines including modeling steps and cross-validation.
     - **`visualization.py`**: Utilities for creating diagnostic plots (ROC curves, importance charts, etc.).
     - **`orchestrator.py`**: Defines the high-level workflow that connects all other modules, including the top 10 analysis logic.
-    - **`scripts/`**: Useful post-processing scripts.
-        - **`process_target.py`**: Post-processes submission files by identifying and capping the highest predictions.
-        - **`top_10_analysis.py`**: Analyzes and visualizes the top 10 TARGET values closest to 1 from a submission file.
+    - **`process_target.py`**: Post-processes submission files by identifying and capping the highest predictions.
+    - **`top_10_analysis.py`**: Analyzes and visualizes the top 10 TARGET values closest to 1 from a submission file.
 - **`tests/`**: Unit tests to ensure the reliability of core components.
     - **`test_config.py`**: Validates configuration loading and directory management.
     - **`test_visualization.py`**: Ensures all plotting utilities function correctly.
@@ -100,9 +99,9 @@ The central workflow coordinator that connects all components into a single pipe
     - `analyze_top_10_targets(submission_df, config)`: Identifies the 10 predictions closest to 1.0, saves a visualization to `plots/`, and exports the data to `submissions/top_10_closest_targets.csv`.
 - **Interactions**: Imports and invokes functionality from all other `src/` modules.
 
-### `src/scripts/`
-Useful post-processing scripts located within the `src` directory for better organization.
-- **Key Scripts**:
+### `src/`
+Useful post-processing scripts and core modules are located within the `src` directory for better organization.
+- **Key Files**:
     - `process_target.py`: Post-processes submission files by identifying and capping the highest predictions.
     - `top_10_analysis.py`: Analyzes and visualizes the top 10 TARGET values closest to 1 from a submission file.
 - **Interactions**: These scripts are designed to be run standalone and import core logic from `src`.

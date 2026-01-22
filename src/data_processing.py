@@ -6,6 +6,12 @@ from src.config import logger
 def load_data(data_dir: str):
     """
     Loads application_train.csv and application_test.csv from the data directory.
+
+    Args:
+        data_dir (str): Path to the directory containing the CSV files.
+
+    Returns:
+        tuple: (train_df, test_df) as pandas DataFrames.
     """
     files = {
         "train": os.path.join(data_dir, "application_train.csv"),
@@ -30,6 +36,12 @@ def fix_known_anomalies(df: pd.DataFrame) -> pd.DataFrame:
     """
     Known issue from common baselines: DAYS_EMPLOYED has placeholder value 365243.
     We convert it to NaN and add a flag feature.
+
+    Args:
+        df (pd.DataFrame): Input dataframe.
+
+    Returns:
+        pd.DataFrame: Dataframe with anomalies fixed.
     """
     if "DAYS_EMPLOYED" in df.columns:
         anom_val = 365243

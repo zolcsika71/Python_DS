@@ -9,12 +9,20 @@ from src.modeling import build_pipeline, cross_validate_auc
 from src.visualization import (
     plot_feature_importance,
     plot_roc_curve,
-    plot_train_test_distribution
+    plot_train_test_distribution,
+    plot_top_10_closest_targets
 )
 
 def analyze_top_10_targets(submission_df: pd.DataFrame, config: ModelConfig):
     """
     Identifies and visualizes the top 10 TARGET values closest to 1.
+
+    Args:
+        submission_df (pd.DataFrame): The model predictions.
+        config (ModelConfig): Project configuration.
+
+    Returns:
+        pd.DataFrame: The top 10 closest targets.
     """
     logger.info("Identifying top 10 TARGET values closest to 1...")
     df = submission_df.copy()
@@ -24,26 +32,8 @@ def analyze_top_10_targets(submission_df: pd.DataFrame, config: ModelConfig):
     top_10_cleaned = top_10_df[['SK_ID_CURR', 'TARGET']].reset_index(drop=True)
     
     # Visualization
-    import matplotlib.pyplot as plt
-    plt.figure(figsize=(12, 6))
-    plot_df = top_10_cleaned.sort_values(by='TARGET', ascending=False)
-    bars = plt.bar(plot_df['SK_ID_CURR'].astype(str), plot_df['TARGET'], color='salmon')
-    plt.axhline(y=1, color='r', linestyle='--', label='Target Value 1.0')
-    plt.xlabel('SK_ID_CURR (Customer ID)')
-    plt.ylabel('TARGET Value (Probability)')
-    plt.title('Top 10 TARGET Values Closest to 1')
-    plt.xticks(rotation=45)
-    plt.ylim(0, 1.1)
-    plt.legend()
-    for bar in bars:
-        yval = bar.get_height()
-        plt.text(bar.get_x() + bar.get_width()/2, yval + 0.01, f'{yval:.4f}', ha='center', va='bottom')
-    plt.tight_layout()
-    
     plot_path = os.path.join(config.paths.plots_dir, "top_10_targets_closest_to_1.png")
-    plt.savefig(plot_path)
-    logger.info(f"Top 10 visualization saved to {plot_path}")
-    plt.close()
+    plot_top_10_closest_targets(top_10_cleaned, plot_path)
 
     output_csv = os.path.join(config.paths.submissions_dir, "top_10_closest_targets.csv")
     top_10_cleaned.to_csv(output_csv, index=False)
@@ -54,6 +44,16 @@ def analyze_top_10_targets(submission_df: pd.DataFrame, config: ModelConfig):
 def run_pipeline(data_dir=None, folds=3, prefer_lightgbm=True, custom_out=None, config: ModelConfig = CONFIG):
     """
     Orchestrates the full machine learning pipeline.
+
+    Args:
+        data_dir (str, optional): Custom path to data directory.
+        folds (int): Number of cross-validation folds.
+        prefer_lightgbm (bool): Whether to try LightGBM first.
+        custom_out (str, optional): Custom path for the output submission file.
+        config (ModelConfig): Project configuration.
+
+    Returns:
+        str: Path to the generated submission file.
     """
     setup_directories(config)
     data_dir = data_dir or config.paths.data_dir
