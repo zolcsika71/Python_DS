@@ -12,7 +12,7 @@ The Home Credit Default Risk pipeline is built with a focus on **modularity**, *
 - **Automated Preprocessing**: Handles missing values and scales features automatically based on data types.
 - **Anomaly Handling**: Specifically addresses known data issues like the `DAYS_EMPLOYED` anomaly.
 - **Dual Model Support**: Easily switch between a robust `LogisticRegression` baseline and high-performance `LightGBM`.
-- **Advanced Visualization**: Generates ROC curves, feature importance plots, and distribution comparisons to ensure model reliability.
+- **Advanced Visualization**: Generates ROC curves, feature importance plots, and distribution comparisons. It also performs a specialized "Top 10" analysis to identify customers with the highest predicted risk.
 - **Professional Logging**: Uses a custom color-coded logging system for better visibility of the pipeline's progress.
 
 ### Technologies Used:
@@ -35,13 +35,13 @@ The codebase is organized as follows:
     - **`data_processing.py`**: Functions for reading raw data and performing initial cleaning/anomaly fixing.
     - **`modeling.py`**: Logic for building Scikit-learn pipelines including modeling steps and cross-validation.
     - **`visualization.py`**: Utilities for creating diagnostic plots (ROC curves, importance charts, etc.).
-    - **`orchestrator.py`**: Defines the high-level workflow that connects all other modules.
+    - **`orchestrator.py`**: Defines the high-level workflow that connects all other modules, including the top 10 analysis logic.
 - **`scripts/`**: Useful post-processing scripts.
-    - **`process_target.py`**: Post-processes submission files.
-    - **`top_10_analysis.py`**: Analyzes and visualizes the top 10 most confident predictions.
+    - **`process_target.py`**: Post-processes submission files by identifying and capping the highest predictions.
+    - **`top_10_analysis.py`**: Analyzes and visualizes the top 10 TARGET values closest to 1 from a submission file.
 - **`data/`**: Directory for input CSV files (`application_train.csv`, `application_test.csv`).
-- **`plots/`**: Automatically generated directory where training visualizations are saved.
-- **`submissions/`**: Automatically generated directory for output CSV files ready for Kaggle submission.
+- **`plots/`**: Automatically generated directory where training visualizations and analysis plots (e.g., `top_10_targets_closest_to_1.png`) are saved.
+- **`submissions/`**: Automatically generated directory for output CSV files and analysis results (e.g., `top_10_closest_targets.csv`).
 - **`test_data_processing.py` / `test_modeling.py`**: Unit tests to ensure the reliability of core components.
 
 ---
@@ -89,6 +89,7 @@ Provides visual evidence of model performance and data health.
 The central workflow coordinator that connects all components into a single pipeline.
 - **Key Functions**:
     - `run_pipeline(...)`: Orchestrates the sequence of events: directory setup, data loading, anomaly fixing, cross-validation, final training, visualization, and submission generation.
+    - `analyze_top_10_targets(submission_df, config)`: Identifies the 10 predictions closest to 1.0, saves a visualization to `plots/`, and exports the data to `submissions/top_10_closest_targets.csv`.
 - **Interactions**: Imports and invokes functionality from all other `src/` modules.
 
 ### `test_data_processing.py` & `test_modeling.py`
@@ -140,54 +141,16 @@ def fix_known_anomalies(df: pd.DataFrame) -> pd.DataFrame:
 *Explanation*: Instead of simply deleting the anomalous rows, we capture the fact that the data was missing (via the `ANOM` flag) and then use statistical imputation for the numerical value. This preserves information while cleaning the feature.
 
 ### Dynamic Pipeline Construction
-The pipeline is built dynamically based on the data types of the input columns.
-
-```python
-from sklearn.compose import ColumnTransformer
-from sklearn.pipeline import Pipeline
-from sklearn.impute import SimpleImputer
-from sklearn.preprocessing import StandardScaler, OneHotEncoder
-
-def build_pipeline(cat_cols, num_cols):
-    numeric = Pipeline(steps=[
-        ("imputer", SimpleImputer(strategy="median")),
-        ("scaler", StandardScaler()),
-    ])
-    categorical = Pipeline(steps=[
-        ("imputer", SimpleImputer(strategy="most_frequent")),
-        ("onehot", OneHotEncoder(handle_unknown="ignore", sparse_output=False)),
-    ])
-    preprocessor = ColumnTransformer(transformers=[
-        ("num", numeric, num_cols),
-        ("cat", categorical, cat_cols),
-    ])
-    return Pipeline([("preprocessor", preprocessor)])
-```
-*Explanation*: This function from `src/modeling.py` ensures that numerical data is scaled and imputed with the median, while categorical data is one-hot encoded after imputing with the most frequent value. This modular approach makes it easy to add more complex feature engineering steps later.
+The pipeline is built dynamically based on the data types of the input columns and includes the model directly. This ensures that preprocessing, cleaning, and modeling are all handled within a single object, improving consistency and reducing errors.
 
 ### Orchestrating the Workflow
-The `run_pipeline` function manages the high-level execution logic.
-
-```python
-from src.data_processing import load_data, fix_known_anomalies
-from src.modeling import cross_validate_auc
-from src.config import logger
-
-def run_pipeline(data_dir, folds, prefer_lightgbm, custom_out=None):
-    # 1. Load Data
-    train_df, test_df = load_data(data_dir)
-
-    # 2. Fix Anomalies
-    train_df = fix_known_anomalies(train_df)
-    test_df = fix_known_anomalies(test_df)
-
-    # 3. Cross-validate
-    logger.info("Running cross-validation...")
-    _ = cross_validate_auc(train_df.drop(columns=["TARGET"]), train_df["TARGET"], folds=folds)
-
-    # ... (Train final model, Visualize, Write Submission)
-```
-*Explanation*: This snippet from `src/orchestrator.py` demonstrates how the different modules are brought together. By abstracting these steps into an orchestrator, we keep the entry point (`main.py`) clean and the individual components reusable.
+The `run_pipeline` function in `src/orchestrator.py` manages the high-level execution sequence:
+1.  **Environment Setup**: Ensures output directories exist.
+2.  **Data Ingestion**: Loads training and testing data.
+3.  **Data Cleaning**: Fixes known anomalies like the `DAYS_EMPLOYED` placeholder.
+4.  **Model Validation**: Performs Stratified K-Fold cross-validation to estimate performance (AUC).
+5.  **Final Training**: Trains the chosen model on the full dataset.
+6.  **Analysis & Artifacts**: Generates diagnostic plots, identified the top 10 TARGET values closest to 1, and writes the submission file.
 
 ---
 
@@ -270,7 +233,7 @@ We welcome contributions to improve the pipeline!
 - **Key Metrics**: 
     - *Quantitative*: `AMT_INCOME_TOTAL`, `AMT_CREDIT`, `DAYS_EMPLOYED`, and `EXT_SOURCE` scores.
     - *Qualitative*: `NAME_EDUCATION_TYPE`, `OCCUPATION_TYPE`, and family status.
-- **Selection Process**: The target variable is **`TARGET`**. It is a binary indicator (1 for payment difficulties, 0 otherwise). This is the most important variable as it directly measures the financial risk and success of the loan approval process.
+- **Selection Process**: The target variable is **`TARGET`**. It is a binary indicator (1 for payment difficulties, 0 otherwise). This is the most important variable as it directly measures the financial risk. The pipeline specifically analyzes the top 10 values closest to 1.0 to provide insight into the most high-risk cases identified by the model.
 - **Examples**: Similar to the LendingClub Loan Analysis or Fannie Mae Mortgage Default Prediction, where a binary status allows for identifying high-risk patterns to improve portfolio health.
 
 ---
