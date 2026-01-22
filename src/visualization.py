@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.metrics import roc_curve, auc
+from sklearn.calibration import CalibratedClassifierCV
 from src.config import logger
 
 def plot_prediction_distribution(probes, out_path, title="Distribution of Predicted Probabilities"):
@@ -47,6 +48,10 @@ def plot_feature_importance(clf, top_n=20, out_dir="plots"):
     """
     model = clf.named_steps["model"]
     preprocessor = clf.named_steps["prep"]
+
+    # If it's calibrated, we need to extract the base model
+    if isinstance(model, CalibratedClassifierCV):
+        model = model.calibrated_classifiers_[0].estimator
 
     # Extract feature names after transformation
     try:
@@ -120,6 +125,52 @@ def plot_top_10_closest_targets(top_10_df, out_path):
     plt.savefig(out_path)
     logger.info(f"Top 10 visualization saved to {out_path}")
     plt.close()
+
+def plot_shap_summary(clf, x_sample, out_path):
+    """
+    Generates a SHAP summary plot.
+    """
+    try:
+        import shap
+        
+        # Access the model
+        model = clf.named_steps["model"]
+        if isinstance(model, CalibratedClassifierCV):
+            # SHAP works better with the base estimator
+            # For CalibratedClassifierCV, we take the first fold's estimator
+            base_model = model.calibrated_classifiers_[0].estimator
+        else:
+            base_model = model
+            
+        # Transform the sample
+        preprocessor = clf.named_steps["prep"]
+        cleaner = clf.named_steps["clean_names"]
+        x_transformed = cleaner.transform(preprocessor.transform(x_sample))
+        
+        # Determine the correct explainer
+        if hasattr(base_model, "feature_importances_"):
+            explainer = shap.TreeExplainer(base_model)
+        else:
+            explainer = shap.LinearExplainer(base_model, x_transformed)
+            
+        shap_values = explainer.shap_values(x_transformed)
+        
+        # shap_values can be a list for multi-class/binary
+        if isinstance(shap_values, list):
+            # For binary classification, index 1 is usually the positive class
+            shap_values_to_plot = shap_values[1] if len(shap_values) > 1 else shap_values[0]
+        else:
+            shap_values_to_plot = shap_values
+
+        plt.figure(figsize=(10, 8))
+        shap.summary_plot(shap_values_to_plot, x_transformed, show=False)
+        plt.title("SHAP Feature Importance (Summary Plot)")
+        plt.tight_layout()
+        plt.savefig(out_path)
+        logger.info(f"Saved SHAP summary plot to {out_path}")
+        plt.close()
+    except Exception as e:
+        logger.warning(f"Could not generate SHAP plot: {e}")
 
 def plot_train_test_distribution(train_proba, test_proba, out_path):
     """

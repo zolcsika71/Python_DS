@@ -4,13 +4,20 @@ import pandas as pd
 from sklearn.pipeline import Pipeline
 
 from src.config import logger, CONFIG, ModelConfig, setup_directories
-from src.data_processing import load_data, fix_known_anomalies
+from src.data_processing import (
+    load_data, 
+    fix_known_anomalies, 
+    add_engineered_features, 
+    validate_data_schema, 
+    check_data_drift
+)
 from src.modeling import build_pipeline, cross_validate_auc
 from src.visualization import (
     plot_feature_importance,
     plot_roc_curve,
     plot_train_test_distribution,
-    plot_top_10_closest_targets
+    plot_top_10_closest_targets,
+    plot_shap_summary
 )
 
 def analyze_top_10_targets(submission_df: pd.DataFrame, config: ModelConfig):
@@ -61,9 +68,17 @@ def run_pipeline(data_dir=None, folds=3, prefer_lightgbm=True, custom_out=None, 
     # 1. Load Data
     train_df, test_df = load_data(data_dir)
 
-    # 2. Fix Anomalies
+    # 2. Validation & Preprocessing
+    validate_data_schema(train_df, [config.target_col, config.id_col])
+    check_data_drift(train_df, test_df)
+
+    # Fix Anomalies
     train_df = fix_known_anomalies(train_df)
     test_df = fix_known_anomalies(test_df)
+    
+    # Add Engineered Features
+    train_df = add_engineered_features(train_df)
+    test_df = add_engineered_features(test_df)
 
     target_col = config.target_col
     id_col = config.id_col
@@ -95,6 +110,11 @@ def run_pipeline(data_dir=None, folds=3, prefer_lightgbm=True, custom_out=None, 
     # 5. Visualizations & Evaluation
     plots_dir = config.paths.plots_dir
     plot_feature_importance(clf, out_dir=plots_dir)
+    
+    # SHAP explainability (using a sample to speed up)
+    shap_sample = x_train.sample(min(100, len(x_train)), random_state=42)
+    shap_plot_path = os.path.join(plots_dir, "shap_summary.png")
+    plot_shap_summary(clf, shap_sample, shap_plot_path)
 
     train_proba = clf.predict_proba(x_train)[:, 1]
     test_proba = clf.predict_proba(x_test)[:, 1]

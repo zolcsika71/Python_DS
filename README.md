@@ -11,8 +11,11 @@ The Home Credit Default Risk pipeline is built with a focus on **modularity**, *
 ### Main Features:
 - **Automated Preprocessing**: Handles missing values and scales features automatically based on data types.
 - **Anomaly Handling**: Specifically addresses known data issues like the `DAYS_EMPLOYED` anomaly.
-- **Dual Model Support**: Easily switch between a robust `LogisticRegression` baseline and high-performance `LightGBM`.
-- **Advanced Visualization**: Generates ROC curves, feature importance plots, and distribution comparisons.
+- **Engineered Ratios**: Includes credit-to-income, annuity-to-income, goods-to-credit, and employed-to-birth ratios.
+- **Data Validation**: Automated schema validation and relative mean drift detection between train and test sets.
+- **Dual Model Support**: Easily switch between a robust `LogisticRegression` baseline and tuned `LightGBM` (with early stopping and optimized hyperparameters).
+- **Probability Calibration**: Uses Platt scaling (`CalibratedClassifierCV`) to ensure well-calibrated risk estimates.
+- **Advanced Visualization & Explainability**: Generates ROC curves, feature importance plots, distribution comparisons, and **SHAP summary plots** for model interpretability.
 - **Top 10 Analysis**: A specialized analysis that identifies and visualizes customers with the highest predicted risk (probabilities closest to 1.0).
 - **Professional Logging**: Uses a custom color-coded logging system for better visibility of the pipeline's progress.
 
@@ -127,6 +130,13 @@ This project is released under the **MIT License**. See the [LICENSE](LICENSE) f
 
 ## 8. Changelog
 
+### [v1.3.0] - 2026-01-23
+- **Probability Calibration**: Integrated `CalibratedClassifierCV` for better probability estimates.
+- **Tuned LightGBM**: Optimized hyperparameters and added early stopping support.
+- **Feature Engineering**: Added financial ratios (credit-to-income, annuity-to-income, etc.).
+- **Data Validation**: Added automated schema checks and data drift detection.
+- **Explainability**: Integrated SHAP for feature-level model interpretation.
+
 ### [v1.2.0] - 2026-01-22
 - **Refactored Directory Structure**: Migrated standalone scripts from `src/scripts/` to `src/` for a flatter, more efficient structure.
 - **Enhanced Orchestration**: Integrated "Top 10" analysis directly into the main pipeline.
@@ -139,4 +149,4 @@ This project is released under the **MIT License**. See the [LICENSE](LICENSE) f
 - Added support for LightGBM with Logistic Regression fallback.
 
 ---
-*Last Updated: 2026-01-22*
+*Last Updated: 2026-01-23*

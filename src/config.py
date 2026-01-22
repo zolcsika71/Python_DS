@@ -48,12 +48,16 @@ class ModelConfig:
     target_col: str = TARGET_COL
     id_col: str = ID_COL
     lgbm_params: Dict[str, Any] = field(default_factory=lambda: {
-        "n_estimators": 800,
-        "learning_rate": 0.05,
-        "num_leaves": 31,
-        "subsample": 0.8,
-        "colsample_bytree": 0.8,
-        "reg_lambda": 1.0,
+        "n_estimators": 2000,
+        "learning_rate": 0.02,
+        "num_leaves": 34,
+        "colsample_bytree": 0.9497036,
+        "subsample": 0.8715623,
+        "max_depth": 8,
+        "reg_alpha": 0.041545473,
+        "reg_lambda": 0.0735294,
+        "min_split_gain": 0.0222415,
+        "min_child_weight": 39.3259775,
         "n_jobs": -1,
         "random_state": 42,
         "importance_type": 'gain',
