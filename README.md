@@ -36,13 +36,21 @@ The codebase is organized as follows:
     - **`modeling.py`**: Logic for building Scikit-learn pipelines including modeling steps and cross-validation.
     - **`visualization.py`**: Utilities for creating diagnostic plots (ROC curves, importance charts, etc.).
     - **`orchestrator.py`**: Defines the high-level workflow that connects all other modules, including the top 10 analysis logic.
-- **`scripts/`**: Useful post-processing scripts.
-    - **`process_target.py`**: Post-processes submission files by identifying and capping the highest predictions.
-    - **`top_10_analysis.py`**: Analyzes and visualizes the top 10 TARGET values closest to 1 from a submission file.
+    - **`scripts/`**: Useful post-processing scripts.
+        - **`process_target.py`**: Post-processes submission files by identifying and capping the highest predictions.
+        - **`top_10_analysis.py`**: Analyzes and visualizes the top 10 TARGET values closest to 1 from a submission file.
+- **`tests/`**: Unit tests to ensure the reliability of core components.
+    - **`test_config.py`**: Validates configuration loading and directory management.
+    - **`test_visualization.py`**: Ensures all plotting utilities function correctly.
+    - **`test_orchestrator.py`**: Tests high-level workflow components like the top 10 analysis.
+    - **`test_data_processing.py`**: Verifies anomaly fixing logic.
+    - **`test_modeling.py`**: Validates pipeline construction and model fitting.
+- **`docs/`**: Project documentation and presentations.
+    - **`Home_Credit_Default_Risk_v4.pptx`**: Project presentation.
+    - **`PPTX_UPDATE_NOTES.md`**: Detailed notes on recent changes to be reflected in the presentation.
 - **`data/`**: Directory for input CSV files (`application_train.csv`, `application_test.csv`).
 - **`plots/`**: Automatically generated directory where training visualizations and analysis plots (e.g., `top_10_targets_closest_to_1.png`) are saved.
 - **`submissions/`**: Automatically generated directory for output CSV files and analysis results (e.g., `top_10_closest_targets.csv`).
-- **`test_data_processing.py` / `test_modeling.py`**: Unit tests to ensure the reliability of core components.
 
 ---
 
@@ -92,11 +100,21 @@ The central workflow coordinator that connects all components into a single pipe
     - `analyze_top_10_targets(submission_df, config)`: Identifies the 10 predictions closest to 1.0, saves a visualization to `plots/`, and exports the data to `submissions/top_10_closest_targets.csv`.
 - **Interactions**: Imports and invokes functionality from all other `src/` modules.
 
-### `test_data_processing.py` & `test_modeling.py`
+### `src/scripts/`
+Useful post-processing scripts located within the `src` directory for better organization.
+- **Key Scripts**:
+    - `process_target.py`: Post-processes submission files by identifying and capping the highest predictions.
+    - `top_10_analysis.py`: Analyzes and visualizes the top 10 TARGET values closest to 1 from a submission file.
+- **Interactions**: These scripts are designed to be run standalone and import core logic from `src`.
+
+### `tests/`
 Unit tests designed to ensure the stability of the core logic.
 - **Key Tests**:
-    - `test_fix_known_anomalies`: Verifies that the employment anomaly flag is correctly created.
-    - `test_build_pipeline`: Confirms that the `ColumnTransformer` correctly processes different data types.
+    - `test_config.py`: Validates that directory setup and configuration defaults are correct.
+    - `test_visualization.py`: Confirms that plots are correctly generated and saved.
+    - `test_orchestrator.py`: Tests the top 10 analysis and core orchestration logic.
+    - `test_data_processing.py`: Verifies that the employment anomaly flag is correctly created.
+    - `test_modeling.py`: Confirms that the `ColumnTransformer` correctly processes different data types.
 - **Interactions**: Standalone scripts that import `src` modules to validate their behavior via `pytest`.
 
 ---
@@ -212,7 +230,7 @@ We welcome contributions to improve the pipeline!
 - **Logging**: Do not use `print()`. Use the centralized `logger` from `src.config`.
 
 ### Testing Requirements
-- If you add a new feature, you **must** add a corresponding test in the `test_*.py` files.
+- If you add a new feature, you **must** add a corresponding test in the `tests/` directory.
 - Ensure all tests pass before submitting a PR:
   ```bash
   poetry run python -m pytest

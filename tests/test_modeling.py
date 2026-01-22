@@ -1,6 +1,11 @@
 import pandas as pd
 import numpy as np
+import os
+import sys
 from sklearn.pipeline import Pipeline
+
+# Add project root to path so we can import src
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from src.modeling import build_pipeline, try_build_model
 
 def test_build_pipeline():

@@ -1,5 +1,10 @@
 import pandas as pd
 import numpy as np
+import os
+import sys
+
+# Add project root to path so we can import src
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from src.data_processing import fix_known_anomalies
 
 def test_fix_known_anomalies():
