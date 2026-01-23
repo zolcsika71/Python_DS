@@ -263,17 +263,17 @@ def select_features_by_drift(train_df: pd.DataFrame, test_df: pd.DataFrame,
         tuple: (train_df, test_df, dropped_features)
     """
     drifted_results = check_data_drift(train_df, test_df, threshold=drift_threshold)
-    drifted_cols = {col: score for col, score in drifted_results}
-    
+    drifted_cols = dict(drifted_results)
+
     to_drop = []
-    
+
     if importances is not None:
         # Map back to original features (some might be OHE)
         # But here check_data_drift works on original columns before OHE.
         for col, drift_score in drifted_cols.items():
             # Find importance for this feature
             feat_importance = importances[importances['feature'] == col]['importance'].max()
-            
+
             # If importance is NaN (not in model) or below threshold, drop it
             if pd.isna(feat_importance) or feat_importance < importance_threshold:
                 to_drop.append(col)
@@ -287,5 +287,5 @@ def select_features_by_drift(train_df: pd.DataFrame, test_df: pd.DataFrame,
         train_df = train_df.drop(columns=to_drop)
         test_df = test_df.drop(columns=to_drop)
         logger.info(f"Dropped {len(to_drop)} features due to drift and low importance.")
-        
+
     return train_df, test_df, to_drop
