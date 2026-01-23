@@ -12,7 +12,7 @@ The Home Credit Default Risk pipeline is built with a focus on **modularity**, *
 - **Automated Preprocessing**: Handles missing values and scales features automatically based on data types.
 - **Anomaly Handling**: Specifically addresses known data issues like the `DAYS_EMPLOYED` anomaly.
 - **Engineered Ratios**: Includes credit-to-income, annuity-to-income, goods-to-credit, and employed-to-birth ratios.
-- **Data Validation & Automated Selection**: Automated schema validation and informed feature selection. Detects data drift and automatically drops features that are statistically shifted between sets but have low predictive importance.
+- **Data Validation & Automated Selection**: Automated schema validation and informed feature selection. Detects data drift and automatically drops features that are statistically shifted between sets but have low predictive importance (Informed Drift Mitigation).
 - **Dual Model Support**: Easily switch between a robust `LogisticRegression` baseline and tuned `LightGBM` (with early stopping and optimized hyperparameters).
 - **Probability Calibration**: Uses Platt scaling (`CalibratedClassifierCV`) to ensure well-calibrated risk estimates.
 - **Advanced Visualization & Explainability**: Generates ROC curves, feature importance plots, distribution comparisons, and **SHAP summary plots** for model interpretability.
@@ -38,7 +38,15 @@ The Home Credit Default Risk pipeline is built with a focus on **modularity**, *
     poetry install
     ```
 3.  **Data Requirements**:
-    Place the Kaggle competition files (`application_train.csv` and `application_test.csv`) in the `data/` directory.
+    The project utilizes the full relational structure of the Kaggle dataset. Place the following files in the `data/` directory:
+    - `application_train.csv` (Required)
+    - `application_test.csv` (Required)
+    - `bureau.csv` (Optional, for historical credit data)
+    - `bureau_balance.csv` (Optional, for monthly bureau status)
+    - `previous_application.csv` (Optional, for internal loan history)
+    - `POS_CASH_balance.csv` (Optional, for monthly POS/Cash loan status)
+    - `installments_payments.csv` (Optional, for repayment history)
+    - `credit_card_balance.csv` (Optional, for monthly credit card status)
 
 ---
 
@@ -130,6 +138,9 @@ This project is released under the **MIT License**. See the [LICENSE](LICENSE) f
 
 ## 8. Changelog
 
+### [v1.5.1] - 2026-01-23
+- **Dependency Fix**: Added missing `shap` and `numba` dependencies to ensure the pipeline can generate SHAP-based model explanations without errors.
+
 ### [v1.5.0] - 2026-01-23
 - **Automated Drift Mitigation**: Implemented informed feature selection to address data drift. The pipeline now automatically identifies drifted features and drops those with low predictive importance, improving model robustness against distribution shifts.
 - **Enhanced Drift Reporting**: Updated drift detection to sort warnings by severity (relative difference) and provide clearer logs.
@@ -163,21 +174,25 @@ This project is released under the **MIT License**. See the [LICENSE](LICENSE) f
 
 ---
 
-## 9. Risk Assessment & Data Drift Report (2026-01-23)
+## 9. Risk Assessment & Data Drift Report
 
-### Identification of Warnings
-During the integration of relational data (v1.4.0), potential data drift was detected in **50 columns** between the training and test sets.
+### What is Data Drift?
+Data drift (specifically covariate shift) occurs when the statistical properties of the input data change between the training set and the test set. For example:
+- **`FLAG_EMAIL` (1.87 drift)**: Indicates a 187% difference in mean, suggesting a change in how contact information was collected.
+- **`INSTAL_PAYMENT_DIFF_SUM` (1.33 drift)**: Suggests the test set contains applicants with more volatile payment histories.
 
-### Severity: Moderate
-The drift indicates statistical shifts that may lead to performance degradation on the leaderboard compared to local cross-validation.
+### Why It Matters
+If a model relies on features that have drifted, its learned patterns may no longer apply to the new data, leading to **performance degradation** on the leaderboard.
 
-### Key Observations:
-- **`FLAG_EMAIL`**: 187% relative difference. Likely reflects a change in applicant contact requirements.
-- **`REG_REGION_NOT_LIVE_REGION`**: 24% relative difference.
-- **`AMT_CREDIT` & `AMT_GOODS_PRICE`**: 14% relative difference, suggesting a shift in loan sizes.
+### Automated Mitigation (v1.5.0)
+The pipeline proactively addresses this using an **Informed Feature Selection** strategy:
+1. **Detection**: Compares means between train and test sets to identify shifted features.
+2. **Importance Evaluation**: Trains a pilot model to estimate the predictive power of each feature.
+3. **Intelligent Dropping**: 
+   - **High Drift + Low Importance**: Automatically dropped to reduce noise and risk.
+   - **High Drift + High Importance**: Kept (e.g., `AMT_CREDIT`), as their predictive value outweighs the distribution shift risk.
 
-### Recommendations:
-1. **Automated Fix**: The pipeline now automatically mitigates drift by dropping low-importance drifted features (v1.5.0).
-2. **Monitor Importance**: Verify if drifted features are top predictors via `plots/feature_importance.png`.
-3. **Adversarial Validation**: Implement scripts to identify features that clearly distinguish train from test samples.
-4. **Threshold Tuning**: Consider more robust statistical tests (e.g., KS test) for future drift monitoring.
+### Summary of Findings (2026-01-23)
+- **Detected Drift**: 50 columns identified with significant shifts.
+- **Severity**: **Moderate**. While the system is robust, these shifts require the automated mitigation currently in place.
+- **Action Taken**: The pipeline successfully identified and dropped problematic features (e.g., administrative flags and low-impact counts) while preserving high-value predictors.
