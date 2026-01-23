@@ -1,3 +1,13 @@
+"""
+Visualization utilities for the Home Credit Default Risk pipeline.
+
+RISK ASSESSMENT REPORT (2026-01-23):
+- Detected potential data drift in 50 columns.
+- Key drifted features: FLAG_EMAIL (187%), REG_REGION_NOT_LIVE_REGION (24%), AMT_CREDIT (14%).
+- Severity: Moderate. Impact on test set performance expected.
+- Recommendations: Monitor feature importance and explore adversarial validation.
+"""
+
 import os
 import re
 import numpy as np

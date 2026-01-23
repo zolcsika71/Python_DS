@@ -130,6 +130,12 @@ This project is released under the **MIT License**. See the [LICENSE](LICENSE) f
 
 ## 8. Changelog
 
+### [v1.4.0] - 2026-01-23
+- **Full Relational Integration**: Refactored the data processing pipeline to automatically ingest and aggregate all available Kaggle data files including **`bureau_balance.csv`**, `bureau.csv`, `previous_applications`, `POS_CASH`, `installments`, and `credit_card_balance`.
+- **Dynamic Feature Engineering**: Implemented robust aggregation logic (mean, max, sum, count) for one-to-many relational tables, increasing the feature set from 122 to 180+.
+- **Data Drift Detection**: Integrated automated drift monitoring, identifying significant shifts in 50 features.
+- **Performance Improvement**: Mean AUC increased significantly (from ~0.745 to ~0.761) due to the inclusion of historical behavioral data.
+
 ### [v1.3.0] - 2026-01-23
 - **Probability Calibration**: Integrated `CalibratedClassifierCV` for better probability estimates.
 - **Tuned LightGBM**: Optimized hyperparameters and added early stopping support.
@@ -150,3 +156,23 @@ This project is released under the **MIT License**. See the [LICENSE](LICENSE) f
 
 ---
 *Last Updated: 2026-01-23*
+
+---
+
+## 9. Risk Assessment & Data Drift Report (2026-01-23)
+
+### Identification of Warnings
+During the integration of relational data (v1.4.0), potential data drift was detected in **50 columns** between the training and test sets.
+
+### Severity: Moderate
+The drift indicates statistical shifts that may lead to performance degradation on the leaderboard compared to local cross-validation.
+
+### Key Observations:
+- **`FLAG_EMAIL`**: 187% relative difference. Likely reflects a change in applicant contact requirements.
+- **`REG_REGION_NOT_LIVE_REGION`**: 24% relative difference.
+- **`AMT_CREDIT` & `AMT_GOODS_PRICE`**: 14% relative difference, suggesting a shift in loan sizes.
+
+### Recommendations:
+1. **Monitor Importance**: Verify if drifted features are top predictors via `plots/feature_importance.png`.
+2. **Adversarial Validation**: Implement scripts to identify features that clearly distinguish train from test samples.
+3. **Threshold Tuning**: Consider more robust statistical tests (e.g., KS test) for future drift monitoring.
