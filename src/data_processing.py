@@ -237,9 +237,55 @@ def check_data_drift(train_df: pd.DataFrame, test_df: pd.DataFrame, threshold: f
             
     if drifted_cols:
         logger.warning(f"Detected potential data drift in {len(drifted_cols)} columns:")
-        for col, diff in drifted_cols[:5]:
+        # Sort by drift score descending for clearer logs
+        drifted_cols_sorted = sorted(drifted_cols, key=lambda x: x[1], reverse=True)
+        for col, diff in drifted_cols_sorted[:5]:
             logger.warning(f"  - {col}: relative difference {diff:.2f}")
     else:
         logger.info("No significant data drift detected.")
         
     return drifted_cols
+
+def select_features_by_drift(train_df: pd.DataFrame, test_df: pd.DataFrame, 
+                            drift_threshold: float = 0.1, importance_threshold: float = 10.0,
+                            importances: pd.DataFrame = None):
+    """
+    Identifies and drops features that show significant drift and have low importance.
+    
+    Args:
+        train_df (pd.DataFrame): Training data.
+        test_df (pd.DataFrame): Test data.
+        drift_threshold (float): Threshold for relative mean difference.
+        importance_threshold (float): Threshold for feature importance.
+        importances (pd.DataFrame): DataFrame with 'feature' and 'importance' columns.
+        
+    Returns:
+        tuple: (train_df, test_df, dropped_features)
+    """
+    drifted_results = check_data_drift(train_df, test_df, threshold=drift_threshold)
+    drifted_cols = {col: score for col, score in drifted_results}
+    
+    to_drop = []
+    
+    if importances is not None:
+        # Map back to original features (some might be OHE)
+        # But here check_data_drift works on original columns before OHE.
+        for col, drift_score in drifted_cols.items():
+            # Find importance for this feature
+            feat_importance = importances[importances['feature'] == col]['importance'].max()
+            
+            # If importance is NaN (not in model) or below threshold, drop it
+            if pd.isna(feat_importance) or feat_importance < importance_threshold:
+                to_drop.append(col)
+                logger.info(f"Dropping drifted feature: {col} (Drift: {drift_score:.2f}, Importance: {feat_importance})")
+    else:
+        # If no importances provided, we can't safely drop based on importance
+        # Maybe just log?
+        logger.warning("No importance data provided for drift-based feature selection.")
+
+    if to_drop:
+        train_df = train_df.drop(columns=to_drop)
+        test_df = test_df.drop(columns=to_drop)
+        logger.info(f"Dropped {len(to_drop)} features due to drift and low importance.")
+        
+    return train_df, test_df, to_drop

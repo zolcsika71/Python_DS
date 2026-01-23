@@ -12,7 +12,7 @@ The Home Credit Default Risk pipeline is built with a focus on **modularity**, *
 - **Automated Preprocessing**: Handles missing values and scales features automatically based on data types.
 - **Anomaly Handling**: Specifically addresses known data issues like the `DAYS_EMPLOYED` anomaly.
 - **Engineered Ratios**: Includes credit-to-income, annuity-to-income, goods-to-credit, and employed-to-birth ratios.
-- **Data Validation**: Automated schema validation and relative mean drift detection between train and test sets.
+- **Data Validation & Automated Selection**: Automated schema validation and informed feature selection. Detects data drift and automatically drops features that are statistically shifted between sets but have low predictive importance.
 - **Dual Model Support**: Easily switch between a robust `LogisticRegression` baseline and tuned `LightGBM` (with early stopping and optimized hyperparameters).
 - **Probability Calibration**: Uses Platt scaling (`CalibratedClassifierCV`) to ensure well-calibrated risk estimates.
 - **Advanced Visualization & Explainability**: Generates ROC curves, feature importance plots, distribution comparisons, and **SHAP summary plots** for model interpretability.
@@ -130,6 +130,10 @@ This project is released under the **MIT License**. See the [LICENSE](LICENSE) f
 
 ## 8. Changelog
 
+### [v1.5.0] - 2026-01-23
+- **Automated Drift Mitigation**: Implemented informed feature selection to address data drift. The pipeline now automatically identifies drifted features and drops those with low predictive importance, improving model robustness against distribution shifts.
+- **Enhanced Drift Reporting**: Updated drift detection to sort warnings by severity (relative difference) and provide clearer logs.
+
 ### [v1.4.0] - 2026-01-23
 - **Full Relational Integration**: Refactored the data processing pipeline to automatically ingest and aggregate all available Kaggle data files including **`bureau_balance.csv`**, `bureau.csv`, `previous_applications`, `POS_CASH`, `installments`, and `credit_card_balance`.
 - **Dynamic Feature Engineering**: Implemented robust aggregation logic (mean, max, sum, count) for one-to-many relational tables, increasing the feature set from 122 to 180+.
@@ -173,6 +177,7 @@ The drift indicates statistical shifts that may lead to performance degradation 
 - **`AMT_CREDIT` & `AMT_GOODS_PRICE`**: 14% relative difference, suggesting a shift in loan sizes.
 
 ### Recommendations:
-1. **Monitor Importance**: Verify if drifted features are top predictors via `plots/feature_importance.png`.
-2. **Adversarial Validation**: Implement scripts to identify features that clearly distinguish train from test samples.
-3. **Threshold Tuning**: Consider more robust statistical tests (e.g., KS test) for future drift monitoring.
+1. **Automated Fix**: The pipeline now automatically mitigates drift by dropping low-importance drifted features (v1.5.0).
+2. **Monitor Importance**: Verify if drifted features are top predictors via `plots/feature_importance.png`.
+3. **Adversarial Validation**: Implement scripts to identify features that clearly distinguish train from test samples.
+4. **Threshold Tuning**: Consider more robust statistical tests (e.g., KS test) for future drift monitoring.

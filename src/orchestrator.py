@@ -1,4 +1,5 @@
 import os
+import numpy as np
 from datetime import datetime
 import pandas as pd
 from sklearn.pipeline import Pipeline
@@ -9,7 +10,8 @@ from src.data_processing import (
     fix_known_anomalies, 
     add_engineered_features, 
     validate_data_schema, 
-    check_data_drift
+    check_data_drift,
+    select_features_by_drift
 )
 from src.modeling import build_pipeline, cross_validate_auc
 from src.visualization import (
@@ -70,9 +72,41 @@ def run_pipeline(data_dir=None, folds=3, prefer_lightgbm=True, custom_out=None, 
 
     # 2. Validation & Preprocessing
     validate_data_schema(train_df, [config.target_col, config.id_col])
-    check_data_drift(train_df, test_df)
+    
+    # Initial drift check and automated selection
+    # We train a quick model to get importances for informed drift handling
+    logger.info("Performing informed feature selection based on data drift...")
+    temp_train = fix_known_anomalies(train_df)
+    temp_train = add_engineered_features(temp_train)
+    y_temp = temp_train[config.target_col].astype(int)
+    x_temp = temp_train.drop(columns=[config.target_col])
+    
+    # Use a sample for speed
+    sample_size = min(50000, len(x_temp))
+    x_sample = x_temp.iloc[:sample_size]
+    y_sample = y_temp.iloc[:sample_size]
+    
+    cat_cols_temp = [c for c in x_sample.columns if x_sample[c].dtype == "object"]
+    num_cols_temp = [c for c in x_sample.columns if c not in cat_cols_temp]
+    
+    temp_clf = build_pipeline(cat_cols_temp, num_cols_temp, prefer_lightgbm=prefer_lightgbm, calibrate=False)
+    temp_clf.fit(x_sample, y_sample)
+    
+    # Extract importances
+    model = temp_clf.named_steps["model"]
+    preprocessor = temp_clf.named_steps["prep"]
+    feature_names = preprocessor.get_feature_names_out().tolist()
+    importances_vals = model.feature_importances_ if hasattr(model, "feature_importances_") else np.abs(model.coef_[0])
+    
+    importance_df = pd.DataFrame({'feature': feature_names, 'importance': importances_vals})
+    
+    # Select features
+    train_df, test_df, dropped = select_features_by_drift(train_df, test_df, importances=importance_df)
+    
+    if dropped:
+        logger.info(f"Fixed data drift issues by dropping {len(dropped)} problematic features.")
 
-    # Fix Anomalies
+    # Final Preprocessing
     train_df = fix_known_anomalies(train_df)
     test_df = fix_known_anomalies(test_df)
     
