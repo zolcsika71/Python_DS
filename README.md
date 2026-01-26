@@ -9,15 +9,15 @@ This project provides a comprehensive, modular machine learning pipeline designe
 The Home Credit Default Risk pipeline is built with a focus on **modularity**, **reproducibility**, and **maintainability**. It automates the entire machine learning lifecycle, from data ingestion and cleaning to model training, cross-validation, and the generation of submission-ready artifacts.
 
 ### Main Features:
-- **Automated Preprocessing**: Handles missing values and scales features automatically based on data types.
-- **Anomaly Handling**: Specifically addresses known data issues like the `DAYS_EMPLOYED` anomaly.
-- **Engineered Ratios**: Includes credit-to-income, annuity-to-income, goods-to-credit, and employed-to-birth ratios.
-- **Data Validation & Automated Selection**: Automated schema validation and informed feature selection. Detects data drift and automatically drops features that are statistically shifted between sets but have low predictive importance (Informed Drift Mitigation).
-- **Dual Model Support**: Easily switch between a robust `LogisticRegression` baseline and tuned `LightGBM` (with early stopping and optimized hyperparameters).
-- **Probability Calibration**: Uses Platt scaling (`CalibratedClassifierCV`) to ensure well-calibrated risk estimates.
+- **Dual Model Support**: Easily switch between a robust `LogisticRegression` baseline and tuned `LightGBM` (with early stopping and optimized hyperparameters). Now includes **Probability Calibration** (Platt scaling) as a default for both.
+- **Automated Preprocessing**: Handles missing values and scales features automatically based on data types using an integrated `ColumnTransformer` pipeline.
+- **Anomaly Handling**: Specifically addresses known data issues like the `DAYS_EMPLOYED` anomaly and flags them for the model.
+- **Engineered Ratios**: Includes credit-to-income, annuity-to-income, goods-to-credit, and employed-to-birth ratios, plus automated aggregation of all supplemental datasets.
+- **Informed Drift Mitigation**: Detects data drift (covariate shift) and automatically drops features that are statistically shifted between sets but have low predictive importance.
 - **Advanced Visualization & Explainability**: Generates ROC curves, feature importance plots, distribution comparisons, and **SHAP summary plots** for model interpretability.
-- **Top 10 Analysis**: A specialized analysis that identifies and visualizes customers with the highest predicted risk (probabilities closest to 1.0).
-- **Professional Logging**: Uses a custom color-coded logging system for better visibility of the pipeline's progress.
+- **Risk Analysis**: A specialized "Top 10" analysis identifies and visualizes customers with the highest predicted risk.
+- **Professional Logging**: Uses a custom color-coded logging system (green for success/info) for better visibility.
+- **Full Relational Integration**: Automatically joins and aggregates `bureau`, `previous_applications`, `POS_CASH`, `installments`, and `credit_card_balance` datasets.
 
 ---
 
@@ -138,8 +138,9 @@ This project is released under the **MIT License**. See the [LICENSE](LICENSE) f
 
 ## 8. Changelog
 
-### [v1.5.1] - 2026-01-23
+### [v1.5.1] - 2026-01-26
 - **Dependency Fix**: Added missing `shap` and `numba` dependencies to ensure the pipeline can generate SHAP-based model explanations without errors.
+- **Documentation Update**: Refreshed README.md to reflect the latest pipeline features and automated drift mitigation strategies.
 
 ### [v1.5.0] - 2026-01-23
 - **Automated Drift Mitigation**: Implemented informed feature selection to address data drift. The pipeline now automatically identifies drifted features and drops those with low predictive importance, improving model robustness against distribution shifts.
@@ -170,7 +171,7 @@ This project is released under the **MIT License**. See the [LICENSE](LICENSE) f
 - Added support for LightGBM with Logistic Regression fallback.
 
 ---
-*Last Updated: 2026-01-23*
+*Last Updated: 2026-01-26*
 
 ---
 
@@ -192,7 +193,7 @@ The pipeline proactively addresses this using an **Informed Feature Selection** 
    - **High Drift + Low Importance**: Automatically dropped to reduce noise and risk.
    - **High Drift + High Importance**: Kept (e.g., `AMT_CREDIT`), as their predictive value outweighs the distribution shift risk.
 
-### Summary of Findings (2026-01-23)
-- **Detected Drift**: 50 columns identified with significant shifts.
+### Summary of Findings (2026-01-26)
+- **Detected Drift**: ~50 columns identified with significant shifts.
 - **Severity**: **Moderate**. While the system is robust, these shifts require the automated mitigation currently in place.
 - **Action Taken**: The pipeline successfully identified and dropped problematic features (e.g., administrative flags and low-impact counts) while preserving high-value predictors.
