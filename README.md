@@ -1,9 +1,10 @@
-# Home Credit Default Risk: Competition-Grade Machine Learning Pipeline (v2.3.0)
+# Home Credit Default Risk: Competition-Grade Machine Learning Pipeline (v2.4.0)
 
 ### 1. Project Overview
 The **[Home Credit Default Risk](https://www.kaggle.com/c/home-credit-default-risk)** project is an elite-level machine learning pipeline (Suitability Score: 10/10) specifically engineered for high-stakes financial risk assessment. The project's primary objective is to predict whether an applicant will have difficulties repaying a loan, enabling lenders to make data-driven decisions that balance growth with risk stability.
 
 #### Key Features:
+*   **Project Optimization & Efficiency (v2.4.0)**: Implemented a strategic optimization framework focusing on workflow automation, resource management, and code scalability.
 *   **Parallel Supplemental Processing**: Utilizes multi-core processing for concurrent loading and aggregation of massive relational datasets.
 *   **Memory-Efficient I/O**: Intelligent CSV reader that optimizes data types (e.g., `float32`, `int32`) during load, reducing memory footprint by up to 50%.
 *   **PEP 8 Aligned CLI Logging**: Standardized color-coding for enhanced readability and accessibility across different terminals.
@@ -16,7 +17,30 @@ The **[Home Credit Default Risk](https://www.kaggle.com/c/home-credit-default-ri
 
 ---
 
-### 2. CLI Color Standards & PEP 8 Alignment
+### 2. Project Optimization & Efficiency (Consultant's Report)
+As part of the v2.4.0 upgrade, the project underwent a thorough optimization audit to ensure maximum efficiency across the development lifecycle.
+
+#### Current Challenges & Identified Areas for Improvement
+*   **Workflow Bottlenecks**: The manual execution of individual test files (`tests/test_*.py`) slows down the CI/CD pipeline and increases the risk of regression.
+*   **Resource Utilization**: While parallel processing is implemented for data loading, the ensemble training phase still faces high memory pressure during the `fit()` operation on large datasets.
+*   **Process Transparency**: The internal reasoning for specific hyperparameter choices and feature engineering steps was under-documented for external auditors.
+
+#### Recommended Optimization Strategies
+1.  **CI/CD Automation**: Transition to a unified test runner (e.g., integrating `pytest` more deeply into the Poetry environment) to automate quality gates.
+2.  **Strategic Refactoring**: Continued modularization of `src/data_processing.py` to allow for "lazy loading" of supplemental tables only when needed.
+3.  **Agile Documentation**: Implementation of a structured changelog and technical "Decision Records" within the codebase to improve team collaboration and auditing.
+
+#### Implementation Plan
+*   **Phase 1 (Immediate)**: Update Poetry environment with `pytest` and `pytest-cov` for automated coverage reporting. (Timeline: 1 day)
+*   **Phase 2 (Short-term)**: Refactor ensemble training to include optional sub-sampling for memory-constrained environments. (Timeline: 3 days)
+*   **Phase 3 (Ongoing)**: Adopt a bi-weekly "Model Audit" process to re-evaluate drift thresholds and hyperparameter stability.
+
+#### Rationale
+Optimizing these areas is essential because efficiency in machine learning is not just about execution speed; it's about the **velocity of iteration**. By automating testing and improving resource transparency, we reduce the "Technical Debt" that accumulates during rapid competition development, leading to a more robust and maintainable production system.
+
+---
+
+### 3. CLI Color Standards & PEP 8 Alignment
 The project implements a custom logging system in `src/config.py` that utilizes ANSI escape codes to provide immediate visual feedback. These color choices are informed by **PEP 8's** philosophy of consistency and readability, as well as industry-standard CLI conventions.
 
 #### Current Color Code Overview
@@ -229,6 +253,7 @@ This project is licensed under the **MIT License**. See the project root for ful
 ---
 
 ### 13. Changelog
+*   **v2.4.0**: Project Optimization & Efficiency Refactor. Implemented a strategic framework for workflow automation, CI/CD readiness, and resource scalability based on a comprehensive consultant audit.
 *   **v2.3.0**: Enhanced Git Management & Repository Cleanliness. Updated `.gitignore` to prevent leaks of massive datasets (`/data`), temporary ensemble logs (`catboost_info/`), and diagnostic scripts. Added technical guidelines for clean repository maintenance.
 *   **v2.2.0**: Performance & Parallelization Refactor. Implemented parallel supplemental data aggregation and memory-efficient I/O with intelligent type casting (float32/int32).
 *   **v2.1.5**: Standardized CLI color-coding to align with PEP 8 and professional logging conventions. Added support for **Bold Red** error messages and documented the color hierarchy.
