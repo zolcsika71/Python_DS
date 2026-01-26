@@ -6,13 +6,23 @@ from typing import Dict, Any
 # Logging Configuration
 class ColorFormatter(logging.Formatter):
     GREEN = "\033[92m"
+    BLUE = "\033[94m"
+    YELLOW = "\033[93m"
+    BOLD = "\033[1m"
     RESET = "\033[0m"
 
     def format(self, record):
+        formatted_msg = super().format(record)
         if record.levelno == logging.INFO:
-            formatted_msg = super().format(record)
             return f"{self.GREEN}{formatted_msg}{self.RESET}"
-        return super().format(record)
+        elif record.levelno == logging.WARNING:
+            # If the message is about data drift, use blue as requested
+            msg_lower = str(record.msg).lower()
+            if "data drift" in msg_lower or str(record.msg).strip().startswith("- "):
+                return f"{self.BOLD}{self.BLUE}{formatted_msg}{self.RESET}"
+            # Standard warnings use Bold Yellow
+            return f"{self.BOLD}{self.YELLOW}{formatted_msg}{self.RESET}"
+        return formatted_msg
 
 def setup_logging():
     handler = logging.StreamHandler()
