@@ -1,9 +1,11 @@
-# Home Credit Default Risk: Competition-Grade Machine Learning Pipeline (v2.1.5)
+# Home Credit Default Risk: Competition-Grade Machine Learning Pipeline (v2.2.0)
 
 ### 1. Project Overview
 The **[Home Credit Default Risk](https://www.kaggle.com/c/home-credit-default-risk)** project is an elite-level machine learning pipeline (Suitability Score: 10/10) specifically engineered for high-stakes financial risk assessment. The project's primary objective is to predict whether an applicant will have difficulties repaying a loan, enabling lenders to make data-driven decisions that balance growth with risk stability.
 
 #### Key Features:
+*   **Parallel Supplemental Processing**: Utilizes multi-core processing for concurrent loading and aggregation of massive relational datasets.
+*   **Memory-Efficient I/O**: Intelligent CSV reader that optimizes data types (e.g., `float32`, `int32`) during load, reducing memory footprint by up to 50%.
 *   **PEP 8 Aligned CLI Logging**: Standardized color-coding for enhanced readability and accessibility across different terminals.
 *   **Refactored High-Performance Core**: Optimized data loading and feature engineering pipelines to minimize redundant memory copies.
 *   **Competition-Grade Stacking Ensemble**: Combines **LightGBM**, **XGBoost**, and **CatBoost** using a Logistic Regression meta-learner.
@@ -100,10 +102,13 @@ To ensure the model's robustness and reliability, the pipeline employs a rigorou
 
 ---
 
-### 6. Refactoring & Optimization (v2.1.0)
+### 6. Refactoring & Optimization (v2.2.0)
 The latest version focuses on making the pipeline "production-ready" through deep architectural refinements:
-*   **Memory Optimization**: In-place feature engineering and unified preprocessing passes in `orchestrator.py` reduce memory spikes by ~40%.
-*   **Code Clarity**: Added extensive technical documentation for relational join logic and the drift mitigation heuristic.
+*   **Parallel Processing**: Implemented `ProcessPoolExecutor` in `src/data_processing.py` to aggregate supplemental datasets (Bureau, Previous Apps, etc.) concurrently, reducing I/O wait times.
+*   **Memory Optimization**: 
+    *   **Intelligent Type Casting**: Automated conversion of `float64` to `float32` and `int64` to `int32` during CSV loading.
+    *   **In-place Operations**: Feature engineering and preprocessing passes are optimized to minimize memory spikes.
+*   **Code Clarity**: Added extensive technical documentation for relational join logic and the parallel execution architecture.
 *   **Streamlined Orchestration**: Removed redundant preprocessing steps, ensuring data is cleaned and enriched exactly once before model training.
 
 ---
@@ -192,6 +197,7 @@ This project is licensed under the **MIT License**. See the project root for ful
 ---
 
 ### 13. Changelog
+*   **v2.2.0**: Performance & Parallelization Refactor. Implemented parallel supplemental data aggregation and memory-efficient I/O with intelligent type casting (float32/int32).
 *   **v2.1.5**: Standardized CLI color-coding to align with PEP 8 and professional logging conventions. Added support for **Bold Red** error messages and documented the color hierarchy.
 *   **v2.1.4**: Added dedicated technical documentation for **SHAP Visualization Stability**, covering format normalization, ensemble proxying, and warning suppression logic.
 *   **v2.1.3**: Comprehensive documentation update. Added detailed sections on **Informed Drift Mitigation**, **Target Variable Definition**, and revised the **3-Fold Cross-Validation** strategy explanation for better clarity.

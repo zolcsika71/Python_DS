@@ -88,7 +88,7 @@ def run_pipeline(data_dir=None, folds=3, prefer_lightgbm=True, custom_out=None, 
     test_df = fix_known_anomalies(test_df)
     test_df = add_engineered_features(test_df)
     
-    y_temp = train_df[config.target_col].astype(int)
+    y_temp = train_df[config.target_col].astype(np.int8)
     x_temp = train_df.drop(columns=[config.target_col])
     
     # Use a sample for speed
@@ -125,7 +125,7 @@ def run_pipeline(data_dir=None, folds=3, prefer_lightgbm=True, custom_out=None, 
     if id_col not in train_df.columns or id_col not in test_df.columns:
         raise ValueError(f"Expected {id_col} column in both train and test.")
 
-    y = train_df[target_col].astype(int)
+    y = train_df[target_col].astype(np.int8)
     test_ids = test_df[id_col]
 
     x_train = train_df.drop(columns=[target_col])

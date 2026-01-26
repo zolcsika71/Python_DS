@@ -1,13 +1,14 @@
 import os
 import pandas as pd
 import numpy as np
+from concurrent.futures import ProcessPoolExecutor
 from src.config import logger
 
 def load_data(data_dir: str):
     """
     Loads application_train.csv and application_test.csv from the data directory,
     and joins them with aggregated features from other files.
-    Optimized to handle large CSV files by leveraging efficient merging.
+    Optimized to handle large CSV files by leveraging efficient merging and parallel processing.
 
     Args:
         data_dir (str): Path to the directory containing the CSV files.
@@ -33,142 +34,152 @@ def load_data(data_dir: str):
     train_df = pd.read_csv(files["train"])
     test_df = pd.read_csv(files["test"])
     
-    # Process and join supplemental data (bureau, previous apps, etc.)
+    # Process and join supplemental data (bureau, previous apps, etc.) in parallel
     train_df, test_df = join_supplemental_data(train_df, test_df, data_dir)
     
     logger.info(f"Loaded train: {train_df.shape}, test: {test_df.shape}")
     return train_df, test_df
 
+def _read_csv(path):
+    """Memory-efficient CSV reader with specified dtypes."""
+    # Optimization: Read a small sample to infer types, then optimize them
+    df_sample = pd.read_csv(path, nrows=100)
+    dtypes = {}
+    for col in df_sample.columns:
+        if df_sample[col].dtype == "float64":
+            dtypes[col] = "float32"
+        elif df_sample[col].dtype == "int64":
+            if col.startswith("SK_ID"):
+                dtypes[col] = "int32"
+            else:
+                dtypes[col] = "int32"
+    
+    return pd.read_csv(path, dtype=dtypes)
+
+def _process_bureau(data_dir):
+    bureau_path = os.path.join(data_dir, "bureau.csv")
+    bureau_bal_path = os.path.join(data_dir, "bureau_balance.csv")
+    if not os.path.exists(bureau_path):
+        return None
+    
+    logger.info("Processing bureau.csv...")
+    bureau = _read_csv(bureau_path)
+    
+    if os.path.exists(bureau_bal_path):
+        logger.info("Processing bureau_balance.csv...")
+        bb = _read_csv(bureau_bal_path)
+        bb_agg = bb.groupby("SK_ID_BUREAU").agg({
+            "MONTHS_BALANCE": ["min", "max", "size"]
+        })
+        bb_agg.columns = ["BB_" + "_".join(x).upper() for x in bb_agg.columns]
+        bureau = bureau.merge(bb_agg, on="SK_ID_BUREAU", how="left")
+
+    bureau_agg = bureau.groupby("SK_ID_CURR").agg({
+        "SK_ID_BUREAU": "count",
+        "DAYS_CREDIT": ["min", "max", "mean"],
+        "CREDIT_DAY_OVERDUE": ["max", "mean"],
+        "AMT_CREDIT_SUM": ["max", "mean", "sum"],
+    })
+    bureau_agg.columns = ["_".join(x).upper() for x in bureau_agg.columns]
+    return bureau_agg
+
+def _process_previous_applications(data_dir):
+    prev_path = os.path.join(data_dir, "previous_application.csv")
+    if not os.path.exists(prev_path):
+        return None
+    
+    logger.info("Processing previous_application.csv...")
+    prev = _read_csv(prev_path)
+    prev_agg = prev.groupby("SK_ID_CURR").agg({
+        "SK_ID_PREV": "count",
+        "AMT_ANNUITY": ["max", "mean"],
+        "AMT_APPLICATION": ["max", "mean", "sum"],
+        "AMT_CREDIT": ["max", "mean", "sum"],
+        "DAYS_DECISION": ["min", "max", "mean"],
+        "CNT_PAYMENT": ["mean", "sum"],
+    })
+    prev_agg.columns = ["PREV_" + "_".join(x).upper() for x in prev_agg.columns]
+    return prev_agg
+
+def _process_pos_cash(data_dir):
+    pos_path = os.path.join(data_dir, "POS_CASH_balance.csv")
+    if not os.path.exists(pos_path):
+        return None
+    
+    logger.info("Processing POS_CASH_balance.csv...")
+    pos = _read_csv(pos_path)
+    pos_agg = pos.groupby("SK_ID_CURR").agg({
+        "MONTHS_BALANCE": ["max", "mean", "size"],
+        "SK_DPD": ["max", "mean"],
+        "SK_DPD_DEF": ["max", "mean"],
+    })
+    pos_agg.columns = ["POS_" + "_".join(x).upper() for x in pos_agg.columns]
+    return pos_agg
+
+def _process_installments(data_dir):
+    inst_path = os.path.join(data_dir, "installments_payments.csv")
+    if not os.path.exists(inst_path):
+        return None
+    
+    logger.info("Processing installments_payments.csv...")
+    inst = _read_csv(inst_path)
+    inst["PAYMENT_DELAY"] = inst["DAYS_ENTRY_PAYMENT"] - inst["DAYS_INSTALMENT"]
+    inst["PAYMENT_DIFF"] = inst["AMT_INSTALMENT"] - inst["AMT_PAYMENT"]
+    
+    inst_agg = inst.groupby("SK_ID_CURR").agg({
+        "NUM_INSTALMENT_VERSION": ["nunique"],
+        "PAYMENT_DELAY": ["max", "mean", "sum"],
+        "PAYMENT_DIFF": ["max", "mean", "sum"],
+        "AMT_INSTALMENT": ["max", "mean", "sum"],
+        "AMT_PAYMENT": ["min", "max", "mean", "sum"],
+        "DAYS_ENTRY_PAYMENT": ["max", "mean", "sum"],
+    })
+    inst_agg.columns = ["INSTAL_" + "_".join(x).upper() for x in inst_agg.columns]
+    return inst_agg
+
+def _process_credit_card(data_dir):
+    cc_path = os.path.join(data_dir, "credit_card_balance.csv")
+    if not os.path.exists(cc_path):
+        return None
+    
+    logger.info("Processing credit_card_balance.csv...")
+    cc = _read_csv(cc_path)
+    cc_agg = cc.groupby("SK_ID_CURR").agg({
+        "AMT_BALANCE": ["max", "mean", "sum"],
+        "AMT_CREDIT_LIMIT_ACTUAL": ["max", "mean"],
+        "AMT_DRAWINGS_ATM_CURRENT": ["max", "mean", "sum"],
+        "AMT_DRAWINGS_CURRENT": ["max", "mean", "sum"],
+        "SK_DPD": ["max", "mean"],
+        "SK_DPD_DEF": ["max", "mean"],
+    })
+    cc_agg.columns = ["CC_" + "_".join(x).upper() for x in cc_agg.columns]
+    return cc_agg
+
 def join_supplemental_data(train: pd.DataFrame, test: pd.DataFrame, data_dir: str):
     """
-    Joins aggregated features from bureau, previous_application, etc.
+    Joins aggregated features from bureau, previous_application, etc. in parallel.
     This function performs a series of relational joins to enrich the main application
     tables with historical and behavioral data.
     """
-    # 1. Bureau and Bureau Balance
-    # Tracks credit history with other financial institutions (recorded by the Credit Bureau).
-    bureau_path = os.path.join(data_dir, "bureau.csv")
-    bureau_bal_path = os.path.join(data_dir, "bureau_balance.csv")
+    process_funcs = [
+        _process_bureau,
+        _process_previous_applications,
+        _process_pos_cash,
+        _process_installments,
+        _process_credit_card
+    ]
     
-    if os.path.exists(bureau_path):
-        logger.info("Processing bureau.csv...")
-        bureau = pd.read_csv(bureau_path)
-        
-        if os.path.exists(bureau_bal_path):
-            logger.info("Processing bureau_balance.csv...")
-            bb = pd.read_csv(bureau_bal_path)
-            # Aggregate monthly balance data for each bureau record
-            bb_agg = bb.groupby("SK_ID_BUREAU").agg({
-                "MONTHS_BALANCE": ["min", "max", "size"]
-            })
-            bb_agg.columns = ["BB_" + "_".join(x).upper() for x in bb_agg.columns.ravel()]
-            bb_agg.reset_index(inplace=True)
-            bureau = bureau.merge(bb_agg, on="SK_ID_BUREAU", how="left")
-            logger.info("Bureau balance features merged into bureau.")
-
-        # Simple aggregations: count of previous loans and statistical summaries of credit terms
-        bureau_agg = bureau.groupby("SK_ID_CURR").agg({
-            "SK_ID_BUREAU": "count",
-            "DAYS_CREDIT": ["min", "max", "mean"],
-            "CREDIT_DAY_OVERDUE": ["max", "mean"],
-            "AMT_CREDIT_SUM": ["max", "mean", "sum"],
-        })
-        bureau_agg.columns = ["_".join(x).upper() for x in bureau_agg.columns.ravel()]
-        bureau_agg.reset_index(inplace=True)
-        
-        train = train.merge(bureau_agg, on="SK_ID_CURR", how="left")
-        test = test.merge(bureau_agg, on="SK_ID_CURR", how="left")
-        logger.info(f"Bureau features added. New shape: {train.shape}")
-
-    # 2. Previous Applications
-    # Details on all past loan applications with Home Credit.
-    prev_path = os.path.join(data_dir, "previous_application.csv")
-    if os.path.exists(prev_path):
-        logger.info("Processing previous_application.csv...")
-        prev = pd.read_csv(prev_path)
-        
-        # Simple aggregations: capture past decision timing and requested vs. granted amounts
-        prev_agg = prev.groupby("SK_ID_CURR").agg({
-            "SK_ID_PREV": "count",
-            "AMT_ANNUITY": ["max", "mean"],
-            "AMT_APPLICATION": ["max", "mean", "sum"],
-            "AMT_CREDIT": ["max", "mean", "sum"],
-            "DAYS_DECISION": ["min", "max", "mean"],
-            "CNT_PAYMENT": ["mean", "sum"],
-        })
-        prev_agg.columns = ["PREV_" + "_".join(x).upper() for x in prev_agg.columns.ravel()]
-        prev_agg.reset_index(inplace=True)
-        
-        train = train.merge(prev_agg, on="SK_ID_CURR", how="left")
-        test = test.merge(prev_agg, on="SK_ID_CURR", how="left")
-        logger.info(f"Previous application features added. New shape: {train.shape}")
-
-    # 3. POS CASH Balance
-    # Monthly balance snapshots of previous point-of-sale or cash loans.
-    pos_path = os.path.join(data_dir, "POS_CASH_balance.csv")
-    if os.path.exists(pos_path):
-        logger.info("Processing POS_CASH_balance.csv...")
-        pos = pd.read_csv(pos_path)
-        # Aggregate to identify delinquency patterns (DPD = Days Past Due)
-        pos_agg = pos.groupby("SK_ID_CURR").agg({
-            "MONTHS_BALANCE": ["max", "mean", "size"],
-            "SK_DPD": ["max", "mean"],
-            "SK_DPD_DEF": ["max", "mean"],
-        })
-        pos_agg.columns = ["POS_" + "_".join(x).upper() for x in pos_agg.columns.ravel()]
-        pos_agg.reset_index(inplace=True)
-        
-        train = train.merge(pos_agg, on="SK_ID_CURR", how="left")
-        test = test.merge(pos_agg, on="SK_ID_CURR", how="left")
-        logger.info(f"POS features added. New shape: {train.shape}")
-
-    # 4. Installments Payments
-    # Repayment history for previous loans; critical for identifying "late payers".
-    inst_path = os.path.join(data_dir, "installments_payments.csv")
-    if os.path.exists(inst_path):
-        logger.info("Processing installments_payments.csv...")
-        inst = pd.read_csv(inst_path)
-        # Calculate payment behavior metrics
-        inst["PAYMENT_DELAY"] = inst["DAYS_ENTRY_PAYMENT"] - inst["DAYS_INSTALMENT"]
-        inst["PAYMENT_DIFF"] = inst["AMT_INSTALMENT"] - inst["AMT_PAYMENT"]
-        
-        inst_agg = inst.groupby("SK_ID_CURR").agg({
-            "NUM_INSTALMENT_VERSION": ["nunique"],
-            "PAYMENT_DELAY": ["max", "mean", "sum"],
-            "PAYMENT_DIFF": ["max", "mean", "sum"],
-            "AMT_INSTALMENT": ["max", "mean", "sum"],
-            "AMT_PAYMENT": ["min", "max", "mean", "sum"],
-            "DAYS_ENTRY_PAYMENT": ["max", "mean", "sum"],
-        })
-        inst_agg.columns = ["INSTAL_" + "_".join(x).upper() for x in inst_agg.columns.ravel()]
-        inst_agg.reset_index(inplace=True)
-        
-        train = train.merge(inst_agg, on="SK_ID_CURR", how="left")
-        test = test.merge(inst_agg, on="SK_ID_CURR", how="left")
-        logger.info(f"Installments features added. New shape: {train.shape}")
-
-    # 5. Credit Card Balance
-    # Monthly balance snapshots of previous credit cards.
-    cc_path = os.path.join(data_dir, "credit_card_balance.csv")
-    if os.path.exists(cc_path):
-        logger.info("Processing credit_card_balance.csv...")
-        cc = pd.read_csv(cc_path)
-        # Capture utilization rates and delinquency
-        cc_agg = cc.groupby("SK_ID_CURR").agg({
-            "AMT_BALANCE": ["max", "mean", "sum"],
-            "AMT_CREDIT_LIMIT_ACTUAL": ["max", "mean"],
-            "AMT_DRAWINGS_ATM_CURRENT": ["max", "mean", "sum"],
-            "AMT_DRAWINGS_CURRENT": ["max", "mean", "sum"],
-            "SK_DPD": ["max", "mean"],
-            "SK_DPD_DEF": ["max", "mean"],
-        })
-        cc_agg.columns = ["CC_" + "_".join(x).upper() for x in cc_agg.columns.ravel()]
-        cc_agg.reset_index(inplace=True)
-        
-        train = train.merge(cc_agg, on="SK_ID_CURR", how="left")
-        test = test.merge(cc_agg, on="SK_ID_CURR", how="left")
-        logger.info(f"Credit card features added. New shape: {train.shape}")
-
+    logger.info(f"Starting parallel processing of supplemental data with {len(process_funcs)} workers...")
+    
+    with ProcessPoolExecutor() as executor:
+        futures = [executor.submit(func, data_dir) for func in process_funcs]
+        results = [f.result() for f in futures]
+    
+    for agg_df in results:
+        if agg_df is not None:
+            train = train.merge(agg_df, on="SK_ID_CURR", how="left")
+            test = test.merge(agg_df, on="SK_ID_CURR", how="left")
+            
     return train, test
 
 def fix_known_anomalies(df: pd.DataFrame) -> pd.DataFrame:
