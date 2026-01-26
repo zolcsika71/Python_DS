@@ -8,6 +8,7 @@ class ColorFormatter(logging.Formatter):
     GREEN = "\033[92m"
     BLUE = "\033[94m"
     YELLOW = "\033[93m"
+    RED = "\033[91m"
     BOLD = "\033[1m"
     RESET = "\033[0m"
 
@@ -22,6 +23,9 @@ class ColorFormatter(logging.Formatter):
                 return f"{self.BOLD}{self.BLUE}{formatted_msg}{self.RESET}"
             # Standard warnings use Bold Yellow
             return f"{self.BOLD}{self.YELLOW}{formatted_msg}{self.RESET}"
+        elif record.levelno >= logging.ERROR:
+            # Errors and Critical issues use Bold Red
+            return f"{self.BOLD}{self.RED}{formatted_msg}{self.RESET}"
         return formatted_msg
 
 def setup_logging():

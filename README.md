@@ -1,9 +1,10 @@
-# Home Credit Default Risk: Competition-Grade Machine Learning Pipeline (v2.1.4)
+# Home Credit Default Risk: Competition-Grade Machine Learning Pipeline (v2.1.5)
 
 ### 1. Project Overview
 The **[Home Credit Default Risk](https://www.kaggle.com/c/home-credit-default-risk)** project is an elite-level machine learning pipeline (Suitability Score: 10/10) specifically engineered for high-stakes financial risk assessment. The project's primary objective is to predict whether an applicant will have difficulties repaying a loan, enabling lenders to make data-driven decisions that balance growth with risk stability.
 
 #### Key Features:
+*   **PEP 8 Aligned CLI Logging**: Standardized color-coding for enhanced readability and accessibility across different terminals.
 *   **Refactored High-Performance Core**: Optimized data loading and feature engineering pipelines to minimize redundant memory copies.
 *   **Competition-Grade Stacking Ensemble**: Combines **LightGBM**, **XGBoost**, and **CatBoost** using a Logistic Regression meta-learner.
 *   **Informed Drift Mitigation**: A sophisticated 'pilot-model' heuristic that preserves critical signals while filtering out unstable, drifted features.
@@ -13,7 +14,31 @@ The **[Home Credit Default Risk](https://www.kaggle.com/c/home-credit-default-ri
 
 ---
 
-### 2. SHAP Visualization Stability (v2.1.1+)
+### 2. CLI Color Standards & PEP 8 Alignment
+The project implements a custom logging system in `src/config.py` that utilizes ANSI escape codes to provide immediate visual feedback. These color choices are informed by **PEP 8's** philosophy of consistency and readability, as well as industry-standard CLI conventions.
+
+#### Current Color Code Overview
+The pipeline uses high-contrast "bright" ANSI variants to ensure visibility on both dark and light terminal backgrounds:
+*   **INFO (Green)**: Indicates successful operations and general status updates.
+*   **WARNING (Bold Yellow)**: Alerts the user to potential issues or non-critical system events.
+*   **DATA DRIFT (Bold Blue)**: A domain-specific warning extension used specifically for the "Informed Drift Mitigation" alerts.
+*   **ERROR/CRITICAL (Bold Red)**: Highlights critical failures or execution-blocking events that require immediate attention.
+
+#### PEP 8 & Professional Recommendations
+While PEP 8 focuses on source code formatting, it emphasizes **clarity and accessibility**. Our implementation follows these "best practices" for CLI output:
+1.  **Semantic Styling**: Colors are mapped to the psychological severity of the message (Traffic Light system).
+2.  **Redundancy**: Messages include text prefixes (e.g., `[WARNING]`) so that information is not lost for users with color-blindness.
+3.  **Emphasis**: Critical alerts (Warning, Drift, Error) use **Bold** styling to provide visual weight and distinguish them from standard status lines.
+
+#### Testing and Validation
+The color output has been validated using a specialized testing script (`test_pep8_colors.py`) to ensure:
+*   Correct mapping of logging levels to ANSI codes.
+*   Proper termination of color sequences (reset) to prevent background bleeding in the terminal.
+*   Compatibility with modern terminal emulators (i.e., support for 256-color/bright variants).
+
+---
+
+### 3. SHAP Visualization Stability (v2.1.1+)
 Interpreting black-box models is critical in finance. The project utilizes **SHAP (SHapley Additive exPlanations)** to provide mathematically sound feature attribution.
 
 #### Introduction to SHAP
@@ -166,7 +191,8 @@ This project is licensed under the **MIT License**. See the project root for ful
 
 ---
 
-### 12. Changelog
+### 13. Changelog
+*   **v2.1.5**: Standardized CLI color-coding to align with PEP 8 and professional logging conventions. Added support for **Bold Red** error messages and documented the color hierarchy.
 *   **v2.1.4**: Added dedicated technical documentation for **SHAP Visualization Stability**, covering format normalization, ensemble proxying, and warning suppression logic.
 *   **v2.1.3**: Comprehensive documentation update. Added detailed sections on **Informed Drift Mitigation**, **Target Variable Definition**, and revised the **3-Fold Cross-Validation** strategy explanation for better clarity.
 *   **v2.1.2**: Added detailed explanation of the 3-fold cross-validation strategy, including its role in stability, leak prevention, and nested validation for ensembles.
