@@ -63,6 +63,13 @@ def plot_feature_importance(clf, top_n=20, out_dir="plots"):
     if isinstance(model, CalibratedClassifierCV):
         model = model.calibrated_classifiers_[0].estimator
 
+    # Handle StackingClassifier: it doesn't have feature_importances_ directly.
+    # We can either show meta-learner coefficients or average base model importances.
+    # Showing meta-learner coefficients tells us which MODEL is important.
+    # To get FEATURE importance, we might need to average the base models' importances.
+    from sklearn.ensemble import StackingClassifier
+    is_stack = isinstance(model, StackingClassifier)
+
     # Extract feature names after transformation
     try:
         # Our pipeline structure: prep -> clean_names -> model
@@ -75,14 +82,49 @@ def plot_feature_importance(clf, top_n=20, out_dir="plots"):
     except Exception as e:
         logger.warning(f"Could not extract feature names: {e}. Using generic names.")
         n_features = getattr(model, "n_features_in_", 0)
-        if n_features == 0 and hasattr(model, "feature_importances_"):
-            n_features = len(model.feature_importances_)
-        elif n_features == 0 and hasattr(model, "coef_"):
-            n_features = model.coef_.shape[1]
+        if n_features == 0:
+            # Fallback for Stacking or other models
+            if is_stack:
+                # Use the first base estimator to guess feature count
+                first_est = model.estimators_[0]
+                if hasattr(first_est, "feature_importances_"):
+                    n_features = len(first_est.feature_importances_)
+                elif hasattr(first_est, "coef_"):
+                    n_features = first_est.coef_.shape[1]
+            elif hasattr(model, "feature_importances_"):
+                n_features = len(model.feature_importances_)
+            elif hasattr(model, "coef_"):
+                n_features = model.coef_.shape[1]
         feature_names = [f"f{i}" for i in range(n_features)]
 
     importances = None
-    if hasattr(model, "feature_importances_"):
+    if is_stack:
+        # For Stacking, we average the importances of base models that support it
+        all_imps = []
+        for name, est in model.estimators:
+            # Note: est in model.estimators is the base class, 
+            # we need the fitted ones in model.estimators_
+            pass
+        
+        fitted_estimators = model.estimators_
+        for est in fitted_estimators:
+            if hasattr(est, "feature_importances_"):
+                all_imps.append(est.feature_importances_)
+            elif hasattr(est, "coef_"):
+                # Handle case where coef_ might be 2D (multiclass) or 1D
+                c = np.abs(est.coef_)
+                if c.ndim > 1:
+                    c = c[0]
+                all_imps.append(c)
+        
+        if all_imps:
+            # Ensure all importance arrays have the same length
+            min_len = min(len(i) for i in all_imps)
+            all_imps = [i[:min_len] for i in all_imps]
+            importances = np.mean(all_imps, axis=0)
+            if len(feature_names) > len(importances):
+                feature_names = feature_names[:len(importances)]
+    elif hasattr(model, "feature_importances_"):
         importances = model.feature_importances_
     elif hasattr(model, "coef_"):
         importances = np.abs(model.coef_[0])
@@ -158,6 +200,14 @@ def plot_shap_summary(clf, x_sample, out_path):
         x_transformed = cleaner.transform(preprocessor.transform(x_sample))
         
         # Determine the correct explainer
+        from sklearn.ensemble import StackingClassifier
+        if isinstance(base_model, StackingClassifier):
+            # For stacking ensemble, KernelExplainer is slow but universal.
+            # To stay efficient, we'll explain the lead estimator (usually LGBM)
+            # or use the first fitted estimator in the stack.
+            logger.info("Ensemble detected: Using first base estimator for SHAP summary.")
+            base_model = base_model.estimators_[0]
+
         if hasattr(base_model, "feature_importances_"):
             explainer = shap.TreeExplainer(base_model)
         else:

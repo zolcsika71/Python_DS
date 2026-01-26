@@ -96,5 +96,6 @@ This project is licensed under the **MIT License**. See the project root for ful
 ---
 
 ### 7. Changelog
+*   **v2.0.1**: Fixed diagnostic visualizations for Stacking Ensemble. Enhanced `plot_feature_importance` and `plot_shap_summary` to support multi-model stacks.
 *   **v2.0.0**: Upgraded to Competition Grade. Added Stacking Ensemble, Target Encoding, and enhanced stability for multi-threaded training.
 *   **v1.5.1**: Added SHAP explainability and color-coded CLI logging.
