@@ -1,199 +1,133 @@
 # Home Credit Default Risk - Machine Learning Pipeline
 
-This project provides a comprehensive, modular machine learning pipeline designed to solve the [Home Credit Default Risk](https://www.kaggle.com/c/home-credit-default-risk) Kaggle competition. The goal is to predict the probability that an applicant will encounter difficulties repaying a loan, utilizing both traditional and alternative data sources.
-
----
-
 ## 1. Project Overview
 
-The Home Credit Default Risk pipeline is built with a focus on **modularity**, **reproducibility**, and **maintainability**. It automates the entire machine learning lifecycle, from data ingestion and cleaning to model training, cross-validation, and the generation of submission-ready artifacts.
+The **Home Credit Default Risk** project is a production-grade machine learning pipeline designed to predict loan repayment difficulties. Unlike basic models that only use applicant demographics, this system integrates the full relational Kaggle dataset, encompassing historical credit behaviors, monthly balances, and installment patterns.
 
-### Main Features:
-- **Dual Model Support**: Easily switch between a robust `LogisticRegression` baseline and tuned `LightGBM` (with early stopping and optimized hyperparameters). Now includes **Probability Calibration** (Platt scaling) as a default for both.
-- **Automated Preprocessing**: Handles missing values and scales features automatically based on data types using an integrated `ColumnTransformer` pipeline.
-- **Anomaly Handling**: Specifically addresses known data issues like the `DAYS_EMPLOYED` anomaly and flags them for the model.
-- **Engineered Ratios**: Includes credit-to-income, annuity-to-income, goods-to-credit, and employed-to-birth ratios, plus automated aggregation of all supplemental datasets.
-- **Informed Drift Mitigation**: Detects data drift (covariate shift) and automatically drops features that are statistically shifted between sets but have low predictive importance.
-- **Advanced Visualization & Explainability**: Generates ROC curves, feature importance plots, distribution comparisons, and **SHAP summary plots** for model interpretability.
-- **Risk Analysis**: A specialized "Top 10" analysis identifies and visualizes customers with the highest predicted risk.
-- **Professional Logging**: Uses a custom color-coded logging system (green for success/info) for better visibility.
-- **Full Relational Integration**: Automatically joins and aggregates `bureau`, `previous_applications`, `POS_CASH`, `installments`, and `credit_card_balance` datasets.
+The primary objective is to provide **highly interpretable risk assessments** while maintaining robust performance in the face of data drift. This is achieved through a modular architecture that separates data orchestration, statistical mitigation, and model explainability.
+
+### Key Functional Pillars:
+- **Full Relational Integration**: Automated aggregation of multiple supplemental datasets (Bureau, Previous Applications, etc.) into a flat, feature-rich format.
+- **Informed Drift Mitigation**: A proactive strategy that identifies covariate shift between training and production data, selectively dropping features that are unstable yet non-critical for prediction.
+- **Probabilistic Reliability**: Integrated Platt scaling (via `CalibratedClassifierCV`) ensures that predicted probabilities reflect actual risk levels, which is crucial for financial decision-making.
+- **Explainable AI (XAI)**: Utilizes SHAP (SHapley Additive exPlanations) to provide local and global interpretability, moving beyond simple "black-box" predictions.
 
 ---
 
 ## 2. Installation Instructions
 
 ### Prerequisites
-- **Python**: version 3.12 or higher.
-- **Poetry**: Dependency management and packaging tool.
+- **Python**: v3.12 or higher.
+- **Poetry**: Used for dependency management. If you don't have it, install it via `pip install poetry`.
 
-### Local Setup
-1.  **Clone the repository**:
+### Setup Steps
+1.  **Clone the Repository**:
     ```bash
     git clone <repository-url>
     cd Python_DS
     ```
-2.  **Install dependencies**:
+2.  **Install Environment**:
     ```bash
     poetry install
     ```
-3.  **Data Requirements**:
-    The project utilizes the full relational structure of the Kaggle dataset. Place the following files in the `data/` directory:
-    - `application_train.csv` (Required)
-    - `application_test.csv` (Required)
-    - `bureau.csv` (Optional, for historical credit data)
-    - `bureau_balance.csv` (Optional, for monthly bureau status)
-    - `previous_application.csv` (Optional, for internal loan history)
-    - `POS_CASH_balance.csv` (Optional, for monthly POS/Cash loan status)
-    - `installments_payments.csv` (Optional, for repayment history)
-    - `credit_card_balance.csv` (Optional, for monthly credit card status)
+3.  **Data Placement**:
+    Create a `data/` directory in the root and place the Kaggle CSV files there. The pipeline expects:
+    - `application_train.csv` & `application_test.csv` (Primary)
+    - `bureau.csv`, `previous_application.csv`, `POS_CASH_balance.csv`, etc. (Supplemental)
 
 ---
 
-## 3. Usage Guidelines
+## 3. Detailed Code Explanation
 
-The pipeline is primarily controlled through `main.py`, but also includes standalone scripts for specific tasks.
+The project is structured into modular components within the `src/` directory, each responsible for a specific stage of the pipeline.
 
-### Running the Full Pipeline
-Use `main.py` to execute the end-to-end workflow (loading, cleaning, training, evaluation, and submission generation).
+### A. Configuration (`src/config.py`)
+**Purpose**: Centralizes all hyperparameters, file paths, and logging settings to ensure reproducibility.
+- **Logic**: Uses Python `dataclasses` for structured configuration. It also implements a `ColorFormatter` for the logging system, which provides visual cues in the CLI (e.g., Green for success, Bold Blue for drift warnings).
+- **Example Usage**:
+```python
+from src.config import CONFIG
+# Access hyperparameters directly
+lr = CONFIG.lgbm_params['learning_rate']
+```
 
+### B. Data Processing (`src/data_processing.py`)
+**Purpose**: Handles the "heavy lifting" of data cleaning, joining, and feature engineering.
+- **Functionality**:
+    - `join_supplemental_data`: Performs complex many-to-one joins, aggregating historical data (Bureau, Previous Apps) using statistics like `mean`, `max`, and `sum`.
+    - `fix_known_anomalies`: Identifies and flags data artifacts (e.g., the `365243` placeholder in `DAYS_EMPLOYED`).
+- **Complex Logic - Informed Drift Mitigation**:
+  The function `select_features_by_drift` implements a two-stage filter:
+  1. It calculates the relative mean difference between train and test sets for all numerical features.
+  2. If a feature exceeds the `drift_threshold`, it checks its importance (calculated via a pilot model). Only if the feature is **both drifted and low-importance** is it dropped. This preserves critical signals even if they have shifted.
+
+### C. Modeling Pipeline (`src/modeling.py`)
+**Purpose**: Encapsulates the Scikit-Learn pipeline and cross-validation logic.
+- **Functionality**:
+    - `build_pipeline`: Dynamically constructs a `ColumnTransformer`. It handles `SimpleImputer` and `StandardScaler` for numeric data, and `OneHotEncoder` for categorical data.
+    - `try_build_model`: A factory function that initializes either `LGBMClassifier` or `LogisticRegression`, wrapped in `CalibratedClassifierCV`.
+- **Reasoning**: We use a `Pipeline` object to prevent **data leakage** during cross-validation. Preprocessing parameters (like scaling means) are only learned from the training folds and then applied to the validation folds.
+
+### D. Visualization & Explainability (`src/visualization.py`)
+**Purpose**: Converts model outputs into actionable insights.
+- **Features**:
+    - **ROC Curves**: To evaluate the trade-off between sensitivity and specificity.
+    - **SHAP Summary Plots**: Provides a global view of which features drive the model's decisions and in which direction.
+- **Example Usage**:
+```python
+# Usage within a script:
+# from src.visualization import plot_shap_summary
+# plot_shap_summary(clf, x_sample, "plots/shap_summary.png")
+```
+
+### E. Orchestrator (`src/orchestrator.py`)
+**Purpose**: The "brain" of the project that connects all modules into a linear workflow.
+- **Chain-of-Thought**:
+  1. **Load**: Ingests all CSVs.
+  2. **Pilot Fit**: Performs a quick training pass to determine feature importance for the drift mitigation step.
+  3. **Refine**: Drops problematic features and applies final engineering.
+  4. **Cross-Validate**: Estimates out-of-sample performance across multiple folds.
+  5. **Final Train & Plot**: Trains on the full dataset and generates all diagnostic visualizations.
+
+---
+
+## 4. Usage Examples
+
+### Full Pipeline Execution
+The easiest way to run the project is via `main.py`:
 ```bash
-# Basic run with 3-fold CV (Logistic Regression default)
-poetry run python main.py
-
-# High-performance run with LightGBM and 5-fold CV
+# Recommended: LightGBM with 5-fold CV
 poetry run python main.py --prefer-lightgbm --folds 5
-
-# Customizing output path
-poetry run python main.py --out submissions/my_custom_submission.csv
 ```
 
-### Standalone Scripts
-Located in the `src/` directory:
-- **`src/top_10_analysis.py`**: Runs a standalone analysis on the latest submission to identify high-risk cases.
-  ```bash
-  poetry run python src/top_10_analysis.py
-  ```
-- **`src/process_target.py`**: A utility to post-process submissions (e.g., capping probabilities).
-  ```bash
-  poetry run python src/process_target.py
-  ```
-
----
-
-## 4. Directory Structure
-
-- **`main.py`**: Application entry point.
-- **`src/`**: Core logic (config, processing, modeling, visualization, orchestrator, and scripts).
-- **`tests/`**: Unit tests for all major components.
-- **`data/`**: Input CSV files.
-- **`plots/`**: Generated visualizations (ROC, Importance, Top 10).
-- **`submissions/`**: Output predictions and analysis CSVs.
-- **`docs/`**: Documentation and presentation materials.
-
----
-
-## 5. Contributing
-
-We welcome contributions! To maintain code quality, please follow these guidelines:
-
-### Coding Standards
-- **PEP 8**: Follow standard Python style conventions.
-- **Type Hinting**: Use type hints for all function signatures.
-- **Logging**: Use the centralized `logger` from `src.config` instead of `print()`.
-- **Modularity**: Keep functions focused and well-documented with Google-style docstrings.
-
-### Pull Request Process
-1. Fork the repo and create a feature branch.
-2. Implement your changes and add tests if applicable.
-3. Ensure all tests pass (`poetry run python -m pytest` or manual execution of scripts in `tests/`).
-4. Submit a Pull Request with a clear description of the changes.
-
----
-
-## 6. Testing Instructions
-
-The project uses `pytest` for automated testing.
-
-### Running All Tests
+### High-Risk Customer Analysis
+After running the pipeline, you can perform a focused analysis on the most "at-risk" applicants:
 ```bash
-# If pytest is installed in the environment
-poetry run pytest
-
-# Alternatively, run individual test scripts
-poetry run python tests/test_data_processing.py
-poetry run python tests/test_modeling.py
-poetry run python tests/test_config.py
-poetry run python tests/test_visualization.py
-poetry run python tests/test_orchestrator.py
+poetry run python src/top_10_analysis.py
 ```
+This script identifies the 10 customers with probabilities closest to 1.0 and generates a dedicated plot in the `plots/` folder.
 
 ---
 
-## 7. License Information
+## 5. Contribution Guidelines
 
-This project is released under the **MIT License**. See the [LICENSE](LICENSE) file for the full text (if available) or visit [opensource.org/licenses/MIT](https://opensource.org/licenses/MIT).
+We follow a strict "Clean Code" philosophy to ensure the pipeline remains maintainable:
 
----
-
-## 8. Changelog
-
-### [v1.5.1] - 2026-01-26
-- **Dependency Fix**: Added missing `shap` and `numba` dependencies to ensure the pipeline can generate SHAP-based model explanations without errors.
-- **Documentation Update**: Refreshed README.md to reflect the latest pipeline features and automated drift mitigation strategies.
-
-### [v1.5.0] - 2026-01-23
-- **Automated Drift Mitigation**: Implemented informed feature selection to address data drift. The pipeline now automatically identifies drifted features and drops those with low predictive importance, improving model robustness against distribution shifts.
-- **Enhanced Drift Reporting**: Updated drift detection to sort warnings by severity (relative difference) and provide clearer logs.
-
-### [v1.4.0] - 2026-01-23
-- **Full Relational Integration**: Refactored the data processing pipeline to automatically ingest and aggregate all available Kaggle data files including **`bureau_balance.csv`**, `bureau.csv`, `previous_applications`, `POS_CASH`, `installments`, and `credit_card_balance`.
-- **Dynamic Feature Engineering**: Implemented robust aggregation logic (mean, max, sum, count) for one-to-many relational tables, increasing the feature set from 122 to 180+.
-- **Data Drift Detection**: Integrated automated drift monitoring, identifying significant shifts in 50 features.
-- **Performance Improvement**: Mean AUC increased significantly (from ~0.745 to ~0.761) due to the inclusion of historical behavioral data.
-
-### [v1.3.0] - 2026-01-23
-- **Probability Calibration**: Integrated `CalibratedClassifierCV` for better probability estimates.
-- **Tuned LightGBM**: Optimized hyperparameters and added early stopping support.
-- **Feature Engineering**: Added financial ratios (credit-to-income, annuity-to-income, etc.).
-- **Data Validation**: Added automated schema checks and data drift detection.
-- **Explainability**: Integrated SHAP for feature-level model interpretation.
-
-### [v1.2.0] - 2026-01-22
-- **Refactored Directory Structure**: Migrated standalone scripts from `src/scripts/` to `src/` for a flatter, more efficient structure.
-- **Enhanced Orchestration**: Integrated "Top 10" analysis directly into the main pipeline.
-- **Visualization Update**: Centralized all plotting logic into `src/visualization.py`.
-- **Improved Automation**: Scripts now automatically detect the latest submission files.
-- **Expanded Test Suite**: Added comprehensive tests for configuration, visualization, and orchestration.
-
-### [v1.1.0] - 2026-01-21
-- Initial major refactor: Introduced `ModelConfig` and modularized data processing/modeling.
-- Added support for LightGBM with Logistic Regression fallback.
-
----
-*Last Updated: 2026-01-26*
+- **Modularity**: Every new feature should be a pure function in `data_processing.py` or a distinct step in the `Pipeline`.
+- **Testing**: Add a corresponding test in `tests/` for any new logic. Run existing tests with:
+  ```bash
+  poetry run python tests/test_data_processing.py
+  ```
+- **Documentation**: Use Google-style docstrings.
+- **Style**: Adhere to PEP 8. Use the centralized `logger` for all console output.
 
 ---
 
-## 9. Risk Assessment & Data Drift Report
+## 6. Changelog & Versioning
 
-### What is Data Drift?
-Data drift (specifically covariate shift) occurs when the statistical properties of the input data change between the training set and the test set. For example:
-- **`FLAG_EMAIL` (1.87 drift)**: Indicates a 187% difference in mean, suggesting a change in how contact information was collected.
-- **`INSTAL_PAYMENT_DIFF_SUM` (1.33 drift)**: Suggests the test set contains applicants with more volatile payment histories.
+The project follows semantic versioning. 
+- **Current Version**: `v1.5.1`
+- **Latest Change**: Integrated BOLD styling for CLI warnings to improve accessibility and visibility of data drift alerts.
 
-### Why It Matters
-If a model relies on features that have drifted, its learned patterns may no longer apply to the new data, leading to **performance degradation** on the leaderboard.
 
-### Automated Mitigation (v1.5.0)
-The pipeline proactively addresses this using an **Informed Feature Selection** strategy:
-1. **Detection**: Compares means between train and test sets to identify shifted features.
-2. **Importance Evaluation**: Trains a pilot model to estimate the predictive power of each feature.
-3. **Intelligent Dropping**: 
-   - **High Drift + Low Importance**: Automatically dropped to reduce noise and risk.
-   - **High Drift + High Importance**: Kept (e.g., `AMT_CREDIT`), as their predictive value outweighs the distribution shift risk.
-
-### Summary of Findings (2026-01-26)
-- **Detected Drift**: ~50 columns identified with significant shifts.
-- **Severity**: **Moderate**. While the system is robust, these shifts require the automated mitigation currently in place.
-- **Action Taken**: The pipeline successfully identified and dropped problematic features (e.g., administrative flags and low-impact counts) while preserving high-value predictors.
+MIT license
