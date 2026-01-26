@@ -208,12 +208,24 @@ def plot_shap_summary(clf, x_sample, out_path):
             logger.info("Ensemble detected: Using first base estimator for SHAP summary.")
             base_model = base_model.estimators_[0]
 
+        # LightGBM binary classifier warnings mitigation
+        # By setting feature_perturbation="tree_path_dependent", we can sometimes avoid
+        # output format issues, but the list-of-ndarrays is the new standard for LGBM binary.
+        is_lgbm = base_model.__class__.__name__ == "LGBMClassifier"
+        
         if hasattr(base_model, "feature_importances_"):
             explainer = shap.TreeExplainer(base_model)
         else:
             explainer = shap.LinearExplainer(base_model, x_transformed)
             
-        shap_values = explainer.shap_values(x_transformed)
+        if is_lgbm:
+            # Use a warning filter to suppress the specific LGBM/SHAP warning during value calculation
+            import warnings
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", message=".*LightGBM binary classifier with TreeExplainer shap values output has changed to a list of ndarray.*")
+                shap_values = explainer.shap_values(x_transformed)
+        else:
+            shap_values = explainer.shap_values(x_transformed)
         
         # shap_values can be a list for multi-class/binary
         if isinstance(shap_values, list):
