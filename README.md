@@ -1,4 +1,4 @@
-# Home Credit Default Risk: Competition-Grade Machine Learning Pipeline (v2.1.3)
+# Home Credit Default Risk: Competition-Grade Machine Learning Pipeline (v2.1.4)
 
 ### 1. Project Overview
 The **[Home Credit Default Risk](https://www.kaggle.com/c/home-credit-default-risk)** project is an elite-level machine learning pipeline (Suitability Score: 10/10) specifically engineered for high-stakes financial risk assessment. The project's primary objective is to predict whether an applicant will have difficulties repaying a loan, enabling lenders to make data-driven decisions that balance growth with risk stability.
@@ -7,13 +7,38 @@ The **[Home Credit Default Risk](https://www.kaggle.com/c/home-credit-default-ri
 *   **Refactored High-Performance Core**: Optimized data loading and feature engineering pipelines to minimize redundant memory copies.
 *   **Competition-Grade Stacking Ensemble**: Combines **LightGBM**, **XGBoost**, and **CatBoost** using a Logistic Regression meta-learner.
 *   **Informed Drift Mitigation**: A sophisticated 'pilot-model' heuristic that preserves critical signals while filtering out unstable, drifted features.
+*   **SHAP Visualization Stability**: Professional-grade explainability with normalized output handling for complex ensemble architectures.
 *   **Advanced Target Encoding**: Efficiently handles high-cardinality categorical data (e.g., occupation types).
 *   **Full Relational Integration**: Automatically aggregates historical credit behaviors from 7 supplemental datasets.
-*   **Explainable AI (XAI)**: Integrated SHAP interpretability for both single models and ensembles.
 
 ---
 
-### 2. Dropping Drifted Features
+### 2. SHAP Visualization Stability (v2.1.1+)
+Interpreting black-box models is critical in finance. The project utilizes **SHAP (SHapley Additive exPlanations)** to provide mathematically sound feature attribution.
+
+#### Introduction to SHAP
+SHAP values assign each feature an importance value for a particular prediction by measuring its contribution to the final probability relative to the average model output. This ensures "local accuracy" and "consistency" in risk assessments.
+
+#### Overview of Visualization Stability
+**Visualization Stability** refers to the consistency, reliability, and clarity of diagnostic plots across different model types and library versions. Prior to v2.1.1, the pipeline faced several challenges:
+*   **API Inconsistencies**: LightGBM's recent updates changed the default SHAP output format to a list of ndarrays, triggering persistent `UserWarnings` and breaking standard plotting functions.
+*   **Ensemble Complexity**: The `StackingClassifier` is not natively supported by SHAP's `TreeExplainer`, often leading to runtime errors or uninformative "unknown model" exceptions.
+
+#### Details of Improvements
+To achieve industrial-grade reliability, the following enhancements were implemented:
+1.  **Format Normalization**: Modified `plot_shap_summary` to automatically detect and index into list-based SHAP outputs, ensuring the positive class (Target=1) is always prioritized for visualization.
+2.  **Warning Suppression**: Implemented a localized warning filter that targets specific `shap` emissions during calculation, preventing console clutter while maintaining system-wide alert integrity.
+3.  **Proxy Explainability for Ensembles**: Since full-stack SHAP is computationally prohibitive, the pipeline now intelligently extracts the **lead base estimator** (LightGBM) as a high-fidelity proxy for the ensemble's decision logic.
+4.  **Robust Error Handling**: Added type checks and fallback generic naming to ensure that plots generate even if metadata extraction fails.
+
+#### Impact and Examples
+These improvements ensure that risk analysts receive a clear, actionable view of model drivers.
+*   **Example**: When a customer is flagged as high-risk, the stable SHAP summary plot clearly shows if the risk is driven by **Credit-to-Income ratios** or **Historical Delinquency**, regardless of whether the model is a single LGBM or a complex stack.
+*   **Reliability**: Analysts can trust that the visualization won't "break" during production monitoring due to minor package updates or architecture shifts.
+
+---
+
+### 3. Dropping Drifted Features
 In financial modeling, **Data Drift** (or covariate shift) occurs when the statistical distribution of features changes between the training set and the production (test) set. If left unaddressed, models may rely on patterns that no longer exist, leading to degraded performance.
 
 #### Identification & Mitigation Strategy:
@@ -27,7 +52,7 @@ By pruning high-drift, low-importance noise, the model achieves higher stability
 
 ---
 
-### 3. Target Variable Definition
+### 4. Target Variable Definition
 The project is centered around a single supervised learning objective:
 
 *   **Variable Name**: `TARGET`
@@ -38,7 +63,7 @@ The project is centered around a single supervised learning objective:
 
 ---
 
-### 4. Validation Strategy: 3-Fold Cross-Validation
+### 5. Validation Strategy: 3-Fold Cross-Validation
 To ensure the model's robustness and reliability, the pipeline employs a rigorous **3-Fold Stratified Cross-Validation** strategy.
 
 #### Rationale:
@@ -50,7 +75,7 @@ To ensure the model's robustness and reliability, the pipeline employs a rigorou
 
 ---
 
-### 5. Refactoring & Optimization (v2.1.0)
+### 6. Refactoring & Optimization (v2.1.0)
 The latest version focuses on making the pipeline "production-ready" through deep architectural refinements:
 *   **Memory Optimization**: In-place feature engineering and unified preprocessing passes in `orchestrator.py` reduce memory spikes by ~40%.
 *   **Code Clarity**: Added extensive technical documentation for relational join logic and the drift mitigation heuristic.
@@ -58,7 +83,7 @@ The latest version focuses on making the pipeline "production-ready" through dee
 
 ---
 
-### 6. Installation Instructions
+### 7. Installation Instructions
 Setting up the pipeline is straightforward thanks to **Poetry** dependency management.
 
 #### Prerequisites
@@ -83,7 +108,7 @@ Setting up the pipeline is straightforward thanks to **Poetry** dependency manag
 
 ---
 
-### 7. Usage Instructions
+### 8. Usage Instructions
 The project is designed for both quick experimentation and deep analysis via a robust Command Line Interface (CLI).
 
 #### Running the Full Pipeline
@@ -106,7 +131,7 @@ poetry run python main.py --out submissions/my_custom_submission.csv
 
 ---
 
-### 8. Detailed Code Explanation
+### 9. Detailed Code Explanation
 The codebase is modular, ensuring that each component can be tested and iterated upon independently.
 
 #### A. Configuration (`src/config.py`)
@@ -125,7 +150,7 @@ The workflow engine. In v2.1.0, this was refactored to streamline the 'pilot-mod
 
 ---
 
-### 9. Contributing Guidelines
+### 10. Contributing Guidelines
 We welcome contributions that improve the model's performance or extensibility.
 *   **Modularity**: New features should be implemented as pure functions in `src/data_processing.py`.
 *   **Testing**: Ensure all changes pass existing tests and add new tests in `tests/` for new logic.
@@ -136,12 +161,13 @@ We welcome contributions that improve the model's performance or extensibility.
 
 ---
 
-### 10. License
+### 11. License
 This project is licensed under the **MIT License**. See the project root for full license text.
 
 ---
 
-### 11. Changelog
+### 12. Changelog
+*   **v2.1.4**: Added dedicated technical documentation for **SHAP Visualization Stability**, covering format normalization, ensemble proxying, and warning suppression logic.
 *   **v2.1.3**: Comprehensive documentation update. Added detailed sections on **Informed Drift Mitigation**, **Target Variable Definition**, and revised the **3-Fold Cross-Validation** strategy explanation for better clarity.
 *   **v2.1.2**: Added detailed explanation of the 3-fold cross-validation strategy, including its role in stability, leak prevention, and nested validation for ensembles.
 *   **v2.1.1**: Improved SHAP visualization stability. Suppressed persistent LightGBM format warnings and ensured graceful handling of list-based SHAP outputs for binary classifiers.
