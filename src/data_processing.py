@@ -7,6 +7,7 @@ def load_data(data_dir: str):
     """
     Loads application_train.csv and application_test.csv from the data directory,
     and joins them with aggregated features from other files.
+    Optimized to handle large CSV files by leveraging efficient merging.
 
     Args:
         data_dir (str): Path to the directory containing the CSV files.
@@ -28,10 +29,11 @@ def load_data(data_dir: str):
             )
 
     logger.info(f"Loading data from {data_dir}...")
+    # Load main application files
     train_df = pd.read_csv(files["train"])
     test_df = pd.read_csv(files["test"])
     
-    # Process and join supplemental data
+    # Process and join supplemental data (bureau, previous apps, etc.)
     train_df, test_df = join_supplemental_data(train_df, test_df, data_dir)
     
     logger.info(f"Loaded train: {train_df.shape}, test: {test_df.shape}")
@@ -40,8 +42,11 @@ def load_data(data_dir: str):
 def join_supplemental_data(train: pd.DataFrame, test: pd.DataFrame, data_dir: str):
     """
     Joins aggregated features from bureau, previous_application, etc.
+    This function performs a series of relational joins to enrich the main application
+    tables with historical and behavioral data.
     """
     # 1. Bureau and Bureau Balance
+    # Tracks credit history with other financial institutions (recorded by the Credit Bureau).
     bureau_path = os.path.join(data_dir, "bureau.csv")
     bureau_bal_path = os.path.join(data_dir, "bureau_balance.csv")
     
@@ -52,6 +57,7 @@ def join_supplemental_data(train: pd.DataFrame, test: pd.DataFrame, data_dir: st
         if os.path.exists(bureau_bal_path):
             logger.info("Processing bureau_balance.csv...")
             bb = pd.read_csv(bureau_bal_path)
+            # Aggregate monthly balance data for each bureau record
             bb_agg = bb.groupby("SK_ID_BUREAU").agg({
                 "MONTHS_BALANCE": ["min", "max", "size"]
             })
@@ -60,7 +66,7 @@ def join_supplemental_data(train: pd.DataFrame, test: pd.DataFrame, data_dir: st
             bureau = bureau.merge(bb_agg, on="SK_ID_BUREAU", how="left")
             logger.info("Bureau balance features merged into bureau.")
 
-        # Simple aggregations
+        # Simple aggregations: count of previous loans and statistical summaries of credit terms
         bureau_agg = bureau.groupby("SK_ID_CURR").agg({
             "SK_ID_BUREAU": "count",
             "DAYS_CREDIT": ["min", "max", "mean"],
@@ -75,12 +81,13 @@ def join_supplemental_data(train: pd.DataFrame, test: pd.DataFrame, data_dir: st
         logger.info(f"Bureau features added. New shape: {train.shape}")
 
     # 2. Previous Applications
+    # Details on all past loan applications with Home Credit.
     prev_path = os.path.join(data_dir, "previous_application.csv")
     if os.path.exists(prev_path):
         logger.info("Processing previous_application.csv...")
         prev = pd.read_csv(prev_path)
         
-        # Simple aggregations
+        # Simple aggregations: capture past decision timing and requested vs. granted amounts
         prev_agg = prev.groupby("SK_ID_CURR").agg({
             "SK_ID_PREV": "count",
             "AMT_ANNUITY": ["max", "mean"],
@@ -97,10 +104,12 @@ def join_supplemental_data(train: pd.DataFrame, test: pd.DataFrame, data_dir: st
         logger.info(f"Previous application features added. New shape: {train.shape}")
 
     # 3. POS CASH Balance
+    # Monthly balance snapshots of previous point-of-sale or cash loans.
     pos_path = os.path.join(data_dir, "POS_CASH_balance.csv")
     if os.path.exists(pos_path):
         logger.info("Processing POS_CASH_balance.csv...")
         pos = pd.read_csv(pos_path)
+        # Aggregate to identify delinquency patterns (DPD = Days Past Due)
         pos_agg = pos.groupby("SK_ID_CURR").agg({
             "MONTHS_BALANCE": ["max", "mean", "size"],
             "SK_DPD": ["max", "mean"],
@@ -114,11 +123,12 @@ def join_supplemental_data(train: pd.DataFrame, test: pd.DataFrame, data_dir: st
         logger.info(f"POS features added. New shape: {train.shape}")
 
     # 4. Installments Payments
+    # Repayment history for previous loans; critical for identifying "late payers".
     inst_path = os.path.join(data_dir, "installments_payments.csv")
     if os.path.exists(inst_path):
         logger.info("Processing installments_payments.csv...")
         inst = pd.read_csv(inst_path)
-        # Calculate delay
+        # Calculate payment behavior metrics
         inst["PAYMENT_DELAY"] = inst["DAYS_ENTRY_PAYMENT"] - inst["DAYS_INSTALMENT"]
         inst["PAYMENT_DIFF"] = inst["AMT_INSTALMENT"] - inst["AMT_PAYMENT"]
         
@@ -138,10 +148,12 @@ def join_supplemental_data(train: pd.DataFrame, test: pd.DataFrame, data_dir: st
         logger.info(f"Installments features added. New shape: {train.shape}")
 
     # 5. Credit Card Balance
+    # Monthly balance snapshots of previous credit cards.
     cc_path = os.path.join(data_dir, "credit_card_balance.csv")
     if os.path.exists(cc_path):
         logger.info("Processing credit_card_balance.csv...")
         cc = pd.read_csv(cc_path)
+        # Capture utilization rates and delinquency
         cc_agg = cc.groupby("SK_ID_CURR").agg({
             "AMT_BALANCE": ["max", "mean", "sum"],
             "AMT_CREDIT_LIMIT_ACTUAL": ["max", "mean"],
@@ -180,6 +192,7 @@ def fix_known_anomalies(df: pd.DataFrame) -> pd.DataFrame:
 def add_engineered_features(df: pd.DataFrame) -> pd.DataFrame:
     """
     Adds engineered features like credit-to-income and annuity-to-income ratios.
+    Uses in-place assignment to avoid redundant copies for large dataframes.
 
     Args:
         df (pd.DataFrame): Input dataframe.
@@ -187,8 +200,6 @@ def add_engineered_features(df: pd.DataFrame) -> pd.DataFrame:
     Returns:
         pd.DataFrame: Dataframe with new features.
     """
-    df = df.copy()
-    
     # Credit to Income ratio
     if "AMT_CREDIT" in df.columns and "AMT_INCOME_TOTAL" in df.columns:
         df["CREDIT_TO_INCOME_RATIO"] = df["AMT_CREDIT"] / df["AMT_INCOME_TOTAL"]

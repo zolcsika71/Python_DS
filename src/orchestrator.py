@@ -75,12 +75,21 @@ def run_pipeline(data_dir=None, folds=3, prefer_lightgbm=True, custom_out=None, 
     validate_data_schema(train_df, [config.target_col, config.id_col])
     
     # Initial drift check and automated selection
-    # We train a quick model to get importances for informed drift handling
+    # To mitigate data drift, we use a 'pilot-model' heuristic:
+    # 1. Detect features that have drifted significantly between train and test sets.
+    # 2. Train a quick, non-calibrated model on a subset of data to estimate feature importance.
+    # 3. Drop features ONLY if they are BOTH drifted and have low predictive value.
+    # This preserves critical but unstable signals while removing high-noise drifted features.
     logger.info("Performing informed feature selection based on data drift...")
-    temp_train = fix_known_anomalies(train_df)
-    temp_train = add_engineered_features(temp_train)
-    y_temp = temp_train[config.target_col].astype(int)
-    x_temp = temp_train.drop(columns=[config.target_col])
+    
+    # Optimize: Process anomalies and engineered features only once
+    train_df = fix_known_anomalies(train_df)
+    train_df = add_engineered_features(train_df)
+    test_df = fix_known_anomalies(test_df)
+    test_df = add_engineered_features(test_df)
+    
+    y_temp = train_df[config.target_col].astype(int)
+    x_temp = train_df.drop(columns=[config.target_col])
     
     # Use a sample for speed
     sample_size = min(50000, len(x_temp))
@@ -106,14 +115,6 @@ def run_pipeline(data_dir=None, folds=3, prefer_lightgbm=True, custom_out=None, 
     
     if dropped:
         logger.info(f"Fixed data drift issues by dropping {len(dropped)} problematic features.")
-
-    # Final Preprocessing
-    train_df = fix_known_anomalies(train_df)
-    test_df = fix_known_anomalies(test_df)
-    
-    # Add Engineered Features
-    train_df = add_engineered_features(train_df)
-    test_df = add_engineered_features(test_df)
 
     target_col = config.target_col
     id_col = config.id_col
