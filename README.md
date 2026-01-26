@@ -7,8 +7,10 @@ The **Home Credit Default Risk** project is a production-grade machine learning 
 The primary objective is to provide **highly interpretable risk assessments** while maintaining robust performance in the face of data drift. This is achieved through a modular architecture that separates data orchestration, statistical mitigation, and model explainability.
 
 ### Key Functional Pillars:
-- **Full Relational Integration**: Automated aggregation of multiple supplemental datasets (Bureau, Previous Applications, etc.) into a flat, feature-rich format.
+- **Relational Data Integration**: Automated aggregation of multiple supplemental datasets (Bureau, Previous Applications, etc.) into a flat, feature-rich format.
 - **Informed Drift Mitigation**: A proactive strategy that identifies covariate shift between training and production data, selectively dropping features that are unstable yet non-critical for prediction.
+- **Competition-Grade Stacking**: A multi-model ensemble combining **LightGBM**, **XGBoost**, and **CatBoost** via a meta-learner, significantly boosting predictive power.
+- **Advanced Target Encoding**: Utilizes Bayesian target encoding for high-cardinality categorical features to capture complex patterns without the sparsity of One-Hot Encoding.
 - **Probabilistic Reliability**: Integrated Platt scaling (via `CalibratedClassifierCV`) ensures that predicted probabilities reflect actual risk levels, which is crucial for financial decision-making.
 - **Explainable AI (XAI)**: Utilizes SHAP (SHapley Additive exPlanations) to provide local and global interpretability, moving beyond simple "black-box" predictions.
 
@@ -126,8 +128,8 @@ We follow a strict "Clean Code" philosophy to ensure the pipeline remains mainta
 ## 6. Changelog & Versioning
 
 The project follows semantic versioning. 
-- **Current Version**: `v1.5.1`
-- **Latest Change**: Integrated BOLD styling for CLI warnings to improve accessibility and visibility of data drift alerts.
+- **Current Version**: `v2.0.0`
+- **Latest Change**: Upgraded to **Competition Grade (Score 10)** with Stacking Ensembles (LGBM, XGB, CatBoost) and Target Encoding.
 
 
 MIT license

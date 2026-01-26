@@ -71,6 +71,7 @@ class ModelConfig:
         "n_jobs": -1,
         "random_state": 42,
         "importance_type": 'gain',
+        "verbosity": -1,
     })
     
     logreg_params: Dict[str, Any] = field(default_factory=lambda: {
@@ -78,6 +79,26 @@ class ModelConfig:
         "max_iter": 1000,
         "n_jobs": -1,
         "random_state": 42,
+    })
+    
+    xgb_params: Dict[str, Any] = field(default_factory=lambda: {
+        "n_estimators": 1000,
+        "learning_rate": 0.05,
+        "max_depth": 6,
+        "subsample": 0.8,
+        "colsample_bytree": 0.8,
+        "n_jobs": -1,
+        "random_state": 42,
+        "eval_metric": "auc",
+    })
+    
+    cat_params: Dict[str, Any] = field(default_factory=lambda: {
+        "iterations": 1000,
+        "learning_rate": 0.05,
+        "depth": 6,
+        "random_seed": 42,
+        "verbose": False,
+        "thread_count": -1,
     })
 
 CONFIG = ModelConfig()

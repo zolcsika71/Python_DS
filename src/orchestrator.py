@@ -50,7 +50,7 @@ def analyze_top_10_targets(submission_df: pd.DataFrame, config: ModelConfig):
     
     return top_10_cleaned
 
-def run_pipeline(data_dir=None, folds=3, prefer_lightgbm=True, custom_out=None, config: ModelConfig = CONFIG):
+def run_pipeline(data_dir=None, folds=3, prefer_lightgbm=True, custom_out=None, use_ensemble=True, config: ModelConfig = CONFIG):
     """
     Orchestrates the full machine learning pipeline.
 
@@ -59,6 +59,7 @@ def run_pipeline(data_dir=None, folds=3, prefer_lightgbm=True, custom_out=None, 
         folds (int): Number of cross-validation folds.
         prefer_lightgbm (bool): Whether to try LightGBM first.
         custom_out (str, optional): Custom path for the output submission file.
+        use_ensemble (bool): Whether to use the ensemble stack (default True for Competition Grade).
         config (ModelConfig): Project configuration.
 
     Returns:
@@ -131,14 +132,14 @@ def run_pipeline(data_dir=None, folds=3, prefer_lightgbm=True, custom_out=None, 
 
     # 3. Cross-validate
     logger.info(f"Running {folds}-fold cross-validation...")
-    _ = cross_validate_auc(x_train, y, folds=folds, prefer_lightgbm=prefer_lightgbm)
+    _ = cross_validate_auc(x_train, y, folds=folds, prefer_lightgbm=prefer_lightgbm, use_ensemble=use_ensemble)
 
     # 4. Train Final Model
     logger.info("Training final model on full training data...")
     cat_cols = [c for c in x_train.columns if x_train[c].dtype == "object"]
     num_cols = [c for c in x_train.columns if c not in cat_cols]
     
-    clf = build_pipeline(cat_cols, num_cols, prefer_lightgbm=prefer_lightgbm)
+    clf = build_pipeline(cat_cols, num_cols, prefer_lightgbm=prefer_lightgbm, use_ensemble=use_ensemble)
     clf.fit(x_train, y)
     
     # 5. Visualizations & Evaluation

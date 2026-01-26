@@ -9,6 +9,13 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler, FunctionTransformer
 from sklearn.linear_model import LogisticRegression
 from sklearn.calibration import CalibratedClassifierCV
+from sklearn.ensemble import StackingClassifier
+
+try:
+    from category_encoders import TargetEncoder
+    TARGET_ENCODER_AVAILABLE = True
+except ImportError:
+    TARGET_ENCODER_AVAILABLE = False
 
 from src.config import logger, CONFIG
 
@@ -19,15 +26,62 @@ def import_lgbm_callback():
     except ImportError:
         return None
 
-def try_build_model(prefer_lightgbm: bool, calibrate: bool = True):
+def try_build_model(prefer_lightgbm: bool, calibrate: bool = True, use_ensemble: bool = False):
     """
     Returns a sklearn estimator.
-    If LightGBM is available and prefer_lightgbm=True, use it; else LogisticRegression.
+    If use_ensemble=True, returns a StackingClassifier of LGBM, XGB, and CatBoost.
     """
+    if use_ensemble:
+        try:
+            from lightgbm import LGBMClassifier
+            from xgboost import XGBClassifier
+            from catboost import CatBoostClassifier
+            
+            # To avoid nested parallelism issues that lead to hangs/KeyboardInterrupt,
+            # we ensure base models use a single thread when stacked.
+            lgbm_params = CONFIG.lgbm_params.copy()
+            lgbm_params['n_jobs'] = 1
+            lgbm_params['num_threads'] = 1
+            
+            xgb_params = CONFIG.xgb_params.copy()
+            xgb_params['n_jobs'] = 1
+            
+            cat_params = CONFIG.cat_params.copy()
+            cat_params['thread_count'] = 1
+            
+            base_models = [
+                ('lgbm', LGBMClassifier(**lgbm_params)),
+                ('xgb', XGBClassifier(**xgb_params)),
+                ('cat', CatBoostClassifier(**cat_params))
+            ]
+            
+            # Using LogisticRegression as meta-learner
+            stack = StackingClassifier(
+                estimators=base_models,
+                final_estimator=LogisticRegression(),
+                cv=3,
+                stack_method='predict_proba',
+                n_jobs=1
+            )
+            
+            if calibrate:
+                return CalibratedClassifierCV(stack, method='sigmoid', cv=3, n_jobs=1)
+            return stack
+            
+        except ImportError as e:
+            logger.warning(f"Ensemble libraries not available, falling back. Error: {e}")
+
     if prefer_lightgbm:
         try:
             from lightgbm import LGBMClassifier
-            model = LGBMClassifier(**CONFIG.lgbm_params)
+            # If we are calibrating, we wrap the model, so we might want to limit threads
+            # but usually it's fine unless it's a stack.
+            # However, to be extra safe with CalibratedClassifierCV which uses joblib:
+            lgbm_params = CONFIG.lgbm_params.copy()
+            if calibrate:
+                lgbm_params['n_jobs'] = 1
+                lgbm_params['num_threads'] = 1
+            model = LGBMClassifier(**lgbm_params)
         except Exception as e:
             logger.warning(f"LightGBM not usable, falling back to LogisticRegression. Reason: {e}")
             model = LogisticRegression(**CONFIG.logreg_params)
@@ -36,7 +90,7 @@ def try_build_model(prefer_lightgbm: bool, calibrate: bool = True):
 
     if calibrate:
         # Platt scaling (method='sigmoid') or Isotonic regression (method='isotonic')
-        return CalibratedClassifierCV(model, method='sigmoid', cv=3)
+        return CalibratedClassifierCV(model, method='sigmoid', cv=3, n_jobs=1)
     
     return model
 
@@ -46,7 +100,7 @@ def clean_column_names_func(df):
     df.columns = [re.sub(r'[^\w\s]', '', col).replace(' ', '_') for col in df.columns]
     return df
 
-def build_pipeline(cat_cols, num_cols, prefer_lightgbm: bool = True, calibrate: bool = True):
+def build_pipeline(cat_cols, num_cols, prefer_lightgbm: bool = True, calibrate: bool = True, use_ensemble: bool = False):
     """
     Builds a full preprocessing and modeling pipeline.
     """
@@ -57,12 +111,21 @@ def build_pipeline(cat_cols, num_cols, prefer_lightgbm: bool = True, calibrate: 
         ]
     )
 
-    categorical = Pipeline(
-        steps=[
-            ("imputer", SimpleImputer(strategy="most_frequent")),
-            ("onehot", OneHotEncoder(handle_unknown="ignore", sparse_output=False)),
-        ]
-    )
+    if TARGET_ENCODER_AVAILABLE:
+        categorical = Pipeline(
+            steps=[
+                ("imputer", SimpleImputer(strategy="most_frequent")),
+                ("target_enc", TargetEncoder()),
+                ("scaler", StandardScaler()),
+            ]
+        )
+    else:
+        categorical = Pipeline(
+            steps=[
+                ("imputer", SimpleImputer(strategy="most_frequent")),
+                ("onehot", OneHotEncoder(handle_unknown="ignore", sparse_output=False)),
+            ]
+        )
 
     preprocessor = ColumnTransformer(
         transformers=[
@@ -75,7 +138,7 @@ def build_pipeline(cat_cols, num_cols, prefer_lightgbm: bool = True, calibrate: 
     )
     preprocessor.set_output(transform="pandas")
 
-    model = try_build_model(prefer_lightgbm=prefer_lightgbm, calibrate=calibrate)
+    model = try_build_model(prefer_lightgbm=prefer_lightgbm, calibrate=calibrate, use_ensemble=use_ensemble)
 
     return Pipeline([
         ("prep", preprocessor),
@@ -83,7 +146,7 @@ def build_pipeline(cat_cols, num_cols, prefer_lightgbm: bool = True, calibrate: 
         ("model", model)
     ])
 
-def cross_validate_auc(x: pd.DataFrame, y: pd.Series, folds: int, prefer_lightgbm: bool = True, calibrate: bool = True):
+def cross_validate_auc(x: pd.DataFrame, y: pd.Series, folds: int, prefer_lightgbm: bool = True, calibrate: bool = True, use_ensemble: bool = False):
     skf = StratifiedKFold(n_splits=folds, shuffle=True, random_state=42)
     arcs = []
 
@@ -94,9 +157,9 @@ def cross_validate_auc(x: pd.DataFrame, y: pd.Series, folds: int, prefer_lightgb
         x_tr, x_va = x.iloc[tr_idx], x.iloc[va_idx]
         y_tr, y_va = y.iloc[tr_idx], y.iloc[va_idx]
 
-        clf = build_pipeline(cat_cols, num_cols, prefer_lightgbm=prefer_lightgbm, calibrate=calibrate)
+        clf = build_pipeline(cat_cols, num_cols, prefer_lightgbm=prefer_lightgbm, calibrate=calibrate, use_ensemble=use_ensemble)
 
-        if prefer_lightgbm:
+        if prefer_lightgbm and not use_ensemble:
             # We need to transform the data before passing it to the model for early stopping
             # But the pipeline handles transformation. 
             # To use early stopping in LGBM with sklearn API, we can use fit_params
@@ -126,13 +189,6 @@ def cross_validate_auc(x: pd.DataFrame, y: pd.Series, folds: int, prefer_lightgb
                     eval_metric="auc",
                     callbacks=callbacks
                 )
-                # Ensure the pipeline's FunctionTransformer and ColumnTransformer are also "fitted"
-                # Actually, preprocessor was already fitted.
-                # Just need to make sure clf.predict works correctly.
-                # We already fit the model step.
-                # To be safe, we can just call clf.fit(x_tr, y_tr) as well, but that's redundant.
-                # Since we are using CalibratedClassifierCV by default now, let's keep it simple.
-                clf.fit(x_tr, y_tr)
         else:
             clf.fit(x_tr, y_tr)
 
