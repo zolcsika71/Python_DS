@@ -1,4 +1,4 @@
-# Home Credit Default Risk: Competition-Grade Machine Learning Pipeline (v2.2.0)
+# Home Credit Default Risk: Competition-Grade Machine Learning Pipeline (v2.3.0)
 
 ### 1. Project Overview
 The **[Home Credit Default Risk](https://www.kaggle.com/c/home-credit-default-risk)** project is an elite-level machine learning pipeline (Suitability Score: 10/10) specifically engineered for high-stakes financial risk assessment. The project's primary objective is to predict whether an applicant will have difficulties repaying a loan, enabling lenders to make data-driven decisions that balance growth with risk stability.
@@ -191,12 +191,45 @@ We welcome contributions that improve the model's performance or extensibility.
 
 ---
 
-### 11. License
+### 11. Git Management & Repository Cleanliness (v2.3.0)
+Maintaining a lean and professional repository is critical for collaboration and security, especially when dealing with large-scale financial datasets.
+
+#### Current Issues & Challenges
+Untracked files, if not managed, can lead to several complications:
+*   **Data Leaks**: Accidentally pushing massive Kaggle CSV files (`/data`) to GitHub, exceeding storage limits and potentially violating licensing.
+*   **Noise**: Temporary logs (e.g., `catboost_info/`) and diagnostic scripts (e.g., `reproduce_ensemble_hang.py`) clutter the repository and confuse other developers.
+*   **Merge Conflicts**: Unnecessary files in the tracking index increase the likelihood of avoidable conflicts.
+
+#### Best Practices for Prevention
+The project enforces cleanliness through a multi-layered approach:
+1.  **Global & Local Ignore**: Using a comprehensive `.gitignore` that targets environment files, build artifacts, and domain-specific data folders.
+2.  **Explicit Exclusion**: Folders like `/data`, `/submissions`, and `/plots` are strictly ignored to ensure that only source code and documentation are version-controlled.
+3.  **Clean Staging**: Developers are encouraged to use `git status` frequently and avoid "blind" commands like `git add .` unless the repository is verified clean.
+
+#### Implementation Guidelines
+To maintain this standard, the following patterns are enforced in `.gitignore`:
+```bash
+# Data & Outputs
+data/
+submissions/
+plots/
+
+# Model Logs & Temp Scripts
+catboost_info/
+*.py[cod]
+reproduce_ensemble_hang.py
+.output.txt
+```
+
+---
+
+### 12. License
 This project is licensed under the **MIT License**. See the project root for full license text.
 
 ---
 
 ### 13. Changelog
+*   **v2.3.0**: Enhanced Git Management & Repository Cleanliness. Updated `.gitignore` to prevent leaks of massive datasets (`/data`), temporary ensemble logs (`catboost_info/`), and diagnostic scripts. Added technical guidelines for clean repository maintenance.
 *   **v2.2.0**: Performance & Parallelization Refactor. Implemented parallel supplemental data aggregation and memory-efficient I/O with intelligent type casting (float32/int32).
 *   **v2.1.5**: Standardized CLI color-coding to align with PEP 8 and professional logging conventions. Added support for **Bold Red** error messages and documented the color hierarchy.
 *   **v2.1.4**: Added dedicated technical documentation for **SHAP Visualization Stability**, covering format normalization, ensemble proxying, and warning suppression logic.

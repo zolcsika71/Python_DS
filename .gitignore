@@ -121,5 +121,19 @@ cython_debug/
 
 # Data
 data/
+!data/.gitkeep
+
+# Submissions and Plots
+submissions/
+plots/
+
+# Ensemble Logs & Temporary Files
+catboost_info/
+reproduce_ensemble_hang.py
+.output.txt
+*.csv
+!src/**/*.csv
+# Prevent leaking large dataset files or temporary CSVs
+# (Note: data/ is already ignored above, but *.csv ensures local leak prevention)
 
 
