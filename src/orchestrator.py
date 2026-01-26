@@ -53,7 +53,14 @@ def analyze_top_10_targets(submission_df: pd.DataFrame, config: ModelConfig):
 def run_pipeline(data_dir=None, folds=3, prefer_lightgbm=True, custom_out=None, use_ensemble=True, config: ModelConfig = CONFIG):
     """
     Orchestrates the full machine learning pipeline.
-
+    
+    Workflow Sequence:
+    1. Data Loading: Parallel ingestion of relational datasets.
+    2. Feature Engineering: Domain-specific ratios and anomaly correction.
+    3. Informed Drift Mitigation: Pilot-model pass to filter unstable features.
+    4. Model Training: Ensemble stacking with stratified cross-validation.
+    5. Evaluation: ROC, SHAP, and probability distribution analysis.
+    
     Args:
         data_dir (str, optional): Custom path to data directory.
         folds (int): Number of cross-validation folds.
@@ -61,9 +68,6 @@ def run_pipeline(data_dir=None, folds=3, prefer_lightgbm=True, custom_out=None, 
         custom_out (str, optional): Custom path for the output submission file.
         use_ensemble (bool): Whether to use the ensemble stack (default True for Competition Grade).
         config (ModelConfig): Project configuration.
-
-    Returns:
-        str: Path to the generated submission file.
     """
     setup_directories(config)
     data_dir = data_dir or config.paths.data_dir
@@ -74,15 +78,12 @@ def run_pipeline(data_dir=None, folds=3, prefer_lightgbm=True, custom_out=None, 
     # 2. Validation & Preprocessing
     validate_data_schema(train_df, [config.target_col, config.id_col])
     
-    # Initial drift check and automated selection
-    # To mitigate data drift, we use a 'pilot-model' heuristic:
-    # 1. Detect features that have drifted significantly between train and test sets.
-    # 2. Train a quick, non-calibrated model on a subset of data to estimate feature importance.
-    # 3. Drop features ONLY if they are BOTH drifted and have low predictive value.
-    # This preserves critical but unstable signals while removing high-noise drifted features.
+    # Informed Feature Selection Logic:
+    # Instead of blindly dropping drifted features (which could be highly predictive), 
+    # we run a 'pilot' model to weigh their importance against their instability.
     logger.info("Performing informed feature selection based on data drift...")
     
-    # Optimize: Process anomalies and engineered features only once
+    # Standardize data state before selection
     train_df = fix_known_anomalies(train_df)
     train_df = add_engineered_features(train_df)
     test_df = fix_known_anomalies(test_df)
@@ -91,7 +92,7 @@ def run_pipeline(data_dir=None, folds=3, prefer_lightgbm=True, custom_out=None, 
     y_temp = train_df[config.target_col].astype(np.int8)
     x_temp = train_df.drop(columns=[config.target_col])
     
-    # Use a sample for speed
+    # Optimization: Use a sample for the pilot run to save compute time
     sample_size = min(50000, len(x_temp))
     x_sample = x_temp.iloc[:sample_size]
     y_sample = y_temp.iloc[:sample_size]
@@ -99,10 +100,11 @@ def run_pipeline(data_dir=None, folds=3, prefer_lightgbm=True, custom_out=None, 
     cat_cols_temp = [c for c in x_sample.columns if x_sample[c].dtype == "object"]
     num_cols_temp = [c for c in x_sample.columns if c not in cat_cols_temp]
     
+    # Build a fast, non-calibrated pipeline for importance estimation
     temp_clf = build_pipeline(cat_cols_temp, num_cols_temp, prefer_lightgbm=prefer_lightgbm, calibrate=False)
     temp_clf.fit(x_sample, y_sample)
     
-    # Extract importances
+    # Extract feature importances from the pilot model
     model = temp_clf.named_steps["model"]
     preprocessor = temp_clf.named_steps["prep"]
     feature_names = preprocessor.get_feature_names_out().tolist()
@@ -110,7 +112,7 @@ def run_pipeline(data_dir=None, folds=3, prefer_lightgbm=True, custom_out=None, 
     
     importance_df = pd.DataFrame({'feature': feature_names, 'importance': importances_vals})
     
-    # Select features
+    # Apply the drift-importance filter
     train_df, test_df, dropped = select_features_by_drift(train_df, test_df, importances=importance_df)
     
     if dropped:

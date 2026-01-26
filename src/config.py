@@ -5,6 +5,15 @@ from typing import Dict, Any
 
 # Logging Configuration
 class ColorFormatter(logging.Formatter):
+    """
+    Custom logging formatter that applies ANSI color codes based on log level and content.
+    
+    Color Hierarchy (PEP 8 & Industry Aligned):
+    - INFO: Green (Status updates, successful operations)
+    - WARNING: Bold Yellow (Standard system alerts)
+    - WARNING (Data Drift): Bold Blue (Domain-specific statistical alerts)
+    - ERROR/CRITICAL: Bold Red (Execution-blocking failures)
+    """
     GREEN = "\033[92m"
     BLUE = "\033[94m"
     YELLOW = "\033[93m"
@@ -13,22 +22,30 @@ class ColorFormatter(logging.Formatter):
     RESET = "\033[0m"
 
     def format(self, record):
+        """
+        Formats the log record with colors. 
+        Note: We use Bold for high-severity alerts to improve accessibility for color-blind users.
+        """
         formatted_msg = super().format(record)
         if record.levelno == logging.INFO:
             return f"{self.GREEN}{formatted_msg}{self.RESET}"
         elif record.levelno == logging.WARNING:
-            # If the message is about data drift, use blue as requested
+            # Domain-specific logic: Data drift alerts are colored Blue to distinguish them
+            # from standard system warnings, making them easier to scan in long logs.
             msg_lower = str(record.msg).lower()
             if "data drift" in msg_lower or str(record.msg).strip().startswith("- "):
                 return f"{self.BOLD}{self.BLUE}{formatted_msg}{self.RESET}"
-            # Standard warnings use Bold Yellow
+            # Standard warnings use Bold Yellow for high visibility
             return f"{self.BOLD}{self.YELLOW}{formatted_msg}{self.RESET}"
         elif record.levelno >= logging.ERROR:
-            # Errors and Critical issues use Bold Red
+            # Errors and Critical issues use Bold Red to signal immediate attention required
             return f"{self.BOLD}{self.RED}{formatted_msg}{self.RESET}"
         return formatted_msg
 
 def setup_logging():
+    """
+    Initializes the root logger with our custom ColorFormatter.
+    """
     handler = logging.StreamHandler()
     handler.setFormatter(ColorFormatter('%(asctime)s [%(levelname)s] %(message)s', datefmt='%Y-%m-%d %H:%M:%S'))
     

@@ -30,6 +30,11 @@ def try_build_model(prefer_lightgbm: bool, calibrate: bool = True, use_ensemble:
     """
     Returns a sklearn estimator.
     If use_ensemble=True, returns a StackingClassifier of LGBM, XGB, and CatBoost.
+    
+    Architecture (Competition Grade):
+    - Base Models: LightGBM, XGBoost, CatBoost (Diverse boosting paradigms).
+    - Meta-Learner: Logistic Regression (To blend base predictions).
+    - Calibration: Platt Scaling (To ensure probabilities reflect real-world risk).
     """
     if use_ensemble:
         try:
@@ -39,6 +44,8 @@ def try_build_model(prefer_lightgbm: bool, calibrate: bool = True, use_ensemble:
             
             # To avoid nested parallelism issues that lead to hangs/KeyboardInterrupt,
             # we ensure base models use a single thread when stacked.
+            # Rationale: The StackingClassifier/CalibratedClassifierCV handles its own
+            # parallel loops, so nested n_jobs=-1 would oversubscribe CPU resources.
             lgbm_params = CONFIG.lgbm_params.copy()
             lgbm_params['n_jobs'] = 1
             lgbm_params['num_threads'] = 1
@@ -65,6 +72,8 @@ def try_build_model(prefer_lightgbm: bool, calibrate: bool = True, use_ensemble:
             )
             
             if calibrate:
+                # We use 3-fold internal CV for calibration to prevent overfitting
+                # of the sigmoid parameters to the training set.
                 return CalibratedClassifierCV(stack, method='sigmoid', cv=3, n_jobs=1)
             return stack
             

@@ -1,23 +1,43 @@
-# Home Credit Default Risk: Competition-Grade Machine Learning Pipeline (v2.4.0)
+# Home Credit Default Risk: Competition-Grade Machine Learning Pipeline (v2.5.0)
 
 ### 1. Project Overview
 The **[Home Credit Default Risk](https://www.kaggle.com/c/home-credit-default-risk)** project is an elite-level machine learning pipeline (Suitability Score: 10/10) specifically engineered for high-stakes financial risk assessment. The project's primary objective is to predict whether an applicant will have difficulties repaying a loan, enabling lenders to make data-driven decisions that balance growth with risk stability.
 
 #### Key Features:
+*   **Enhanced Documentation & Maintainability (v2.5.0)**: Upgraded the entire codebase with detailed, instructive comments and docstrings.
 *   **Project Optimization & Efficiency (v2.4.0)**: Implemented a strategic optimization framework focusing on workflow automation, resource management, and code scalability.
 *   **Parallel Supplemental Processing**: Utilizes multi-core processing for concurrent loading and aggregation of massive relational datasets.
 *   **Memory-Efficient I/O**: Intelligent CSV reader that optimizes data types (e.g., `float32`, `int32`) during load, reducing memory footprint by up to 50%.
 *   **PEP 8 Aligned CLI Logging**: Standardized color-coding for enhanced readability and accessibility across different terminals.
-*   **Refactored High-Performance Core**: Optimized data loading and feature engineering pipelines to minimize redundant memory copies.
 *   **Competition-Grade Stacking Ensemble**: Combines **LightGBM**, **XGBoost**, and **CatBoost** using a Logistic Regression meta-learner.
 *   **Informed Drift Mitigation**: A sophisticated 'pilot-model' heuristic that preserves critical signals while filtering out unstable, drifted features.
 *   **SHAP Visualization Stability**: Professional-grade explainability with normalized output handling for complex ensemble architectures.
-*   **Advanced Target Encoding**: Efficiently handles high-cardinality categorical data (e.g., occupation types).
-*   **Full Relational Integration**: Automatically aggregates historical credit behaviors from 7 supplemental datasets.
 
 ---
 
-### 2. Project Optimization & Efficiency (Consultant's Report)
+### 2. Documentation & Maintainability Standards
+In v2.5.0, we have prioritized code transparency and developer onboarding. The project now adheres to senior-level documentation standards, ensuring that even developers new to financial risk modeling can understand the underlying logic.
+
+#### Areas of Detailed Commenting
+*   **Financial Significance**: Comments in `src/data_processing.py` explain *why* certain relational joins (like Bureau or Previous Apps) are critical for risk assessment.
+*   **Ensemble Thread Isolation**: Detailed explanations in `src/modeling.py` regarding the prevention of CPU oversubscription and deadlocks.
+*   **Drift Mitigation Heuristic**: A step-by-step breakdown of the pilot-model pass in `src/orchestrator.py`.
+*   **Average Feature Importance**: Clear logic for how we derive feature insights from complex black-box stacks in `src/visualization.py`.
+
+#### Code Snippet Example (Informed Selection)
+The following snippet from `src/data_processing.py` illustrates our "Safe-to-Drop" logic:
+```python
+# A feature is ONLY dropped if it is flagged for drift AND its importance is low.
+# This prevents the loss of critical predictive signals that might be unstable.
+# (Logic excerpt from select_features_by_drift)
+# if pd.isna(feat_importance) or feat_importance < importance_threshold:
+#     to_drop.append(col)
+#     logger.info(f"Dropping drifted feature: {col} (Drift: {drift_score:.2f})")
+```
+
+---
+
+### 3. Project Optimization & Efficiency (Consultant's Report)
 As part of the v2.4.0 upgrade, the project underwent a thorough optimization audit to ensure maximum efficiency across the development lifecycle.
 
 #### Current Challenges & Identified Areas for Improvement

@@ -55,37 +55,36 @@ def plot_roc_curve(y_true, y_probes, out_path):
 def plot_feature_importance(clf, top_n=20, out_dir="plots"):
     """
     Extracts feature names from the pipeline and plots feature importance if the model supports it.
+    
+    Ensemble Handling:
+    - Since StackingClassifier doesn't expose aggregate importances, we calculate the
+      'Average Feature Importance' across fitted base models (LGBM, XGB, CatBoost).
+    - If the model is calibrated, we extract the base estimator first.
     """
     model = clf.named_steps["model"]
     preprocessor = clf.named_steps["prep"]
 
-    # If it's calibrated, we need to extract the base model
+    # If it's calibrated, we need to extract the base model from the wrapper
     if isinstance(model, CalibratedClassifierCV):
         model = model.calibrated_classifiers_[0].estimator
 
-    # Handle StackingClassifier: it doesn't have feature_importances_ directly.
-    # We can either show meta-learner coefficients or average base model importances.
-    # Showing meta-learner coefficients tells us which MODEL is important.
-    # To get FEATURE importance, we might need to average the base models' importances.
     from sklearn.ensemble import StackingClassifier
     is_stack = isinstance(model, StackingClassifier)
 
-    # Extract feature names after transformation
+    # Extract feature names after transformation to ensure the plot matches the model's inputs
     try:
         # Our pipeline structure: prep -> clean_names -> model
-        # 'prep' is a ColumnTransformer
         feature_names = preprocessor.get_feature_names_out().tolist()
         
-        # Post-process names to match clean_column_names_func
+        # Post-process names to match clean_column_names_func (remove spaces/special chars)
         feature_names = [re.sub(r'[^\w\s]', '', col).replace(' ', '_') for col in feature_names]
 
     except Exception as e:
         logger.warning(f"Could not extract feature names: {e}. Using generic names.")
         n_features = getattr(model, "n_features_in_", 0)
         if n_features == 0:
-            # Fallback for Stacking or other models
+            # Fallback heuristic for complex models
             if is_stack:
-                # Use the first base estimator to guess feature count
                 first_est = model.estimators_[0]
                 if hasattr(first_est, "feature_importances_"):
                     n_features = len(first_est.feature_importances_)
@@ -99,26 +98,20 @@ def plot_feature_importance(clf, top_n=20, out_dir="plots"):
 
     importances = None
     if is_stack:
-        # For Stacking, we average the importances of base models that support it
+        # Aggregate importance scores from all fitted members of the ensemble
         all_imps = []
-        for name, est in model.estimators:
-            # Note: est in model.estimators is the base class, 
-            # we need the fitted ones in model.estimators_
-            pass
-        
         fitted_estimators = model.estimators_
         for est in fitted_estimators:
             if hasattr(est, "feature_importances_"):
                 all_imps.append(est.feature_importances_)
             elif hasattr(est, "coef_"):
-                # Handle case where coef_ might be 2D (multiclass) or 1D
                 c = np.abs(est.coef_)
                 if c.ndim > 1:
                     c = c[0]
                 all_imps.append(c)
         
         if all_imps:
-            # Ensure all importance arrays have the same length
+            # Align lengths in case of minor feature name differences
             min_len = min(len(i) for i in all_imps)
             all_imps = [i[:min_len] for i in all_imps]
             importances = np.mean(all_imps, axis=0)

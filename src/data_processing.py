@@ -41,22 +41,35 @@ def load_data(data_dir: str):
     return train_df, test_df
 
 def _read_csv(path):
-    """Memory-efficient CSV reader with specified dtypes."""
-    # Optimization: Read a small sample to infer types, then optimize them
+    """
+    Memory-efficient CSV reader that uses specified dtypes to reduce memory footprint.
+    
+    Optimization Strategy:
+    - Reads the first 100 rows to infer column types.
+    - Downcasts 'float64' to 'float32' and 'int64' to 'int32'.
+    - This typically reduces memory usage by ~50% for large financial datasets.
+    """
     df_sample = pd.read_csv(path, nrows=100)
     dtypes = {}
     for col in df_sample.columns:
         if df_sample[col].dtype == "float64":
             dtypes[col] = "float32"
         elif df_sample[col].dtype == "int64":
-            if col.startswith("SK_ID"):
-                dtypes[col] = "int32"
-            else:
-                dtypes[col] = "int32"
+            # For Home Credit, SK_ID columns are identifiers; others are usually counts/flags.
+            # int32 is sufficient for all IDs and features in this dataset.
+            dtypes[col] = "int32"
     
     return pd.read_csv(path, dtype=dtypes)
 
 def _process_bureau(data_dir):
+    """
+    Aggregates external credit history from bureau.csv and bureau_balance.csv.
+    
+    Financial Significance:
+    - Measures the customer's behavior with other financial institutions.
+    - High 'DAYS_CREDIT' values indicate long-term credit experience.
+    - 'CREDIT_DAY_OVERDUE' is a strong predictor of default risk.
+    """
     bureau_path = os.path.join(data_dir, "bureau.csv")
     bureau_bal_path = os.path.join(data_dir, "bureau_balance.csv")
     if not os.path.exists(bureau_path):
@@ -68,12 +81,14 @@ def _process_bureau(data_dir):
     if os.path.exists(bureau_bal_path):
         logger.info("Processing bureau_balance.csv...")
         bb = _read_csv(bureau_bal_path)
+        # Aggregating monthly status of bureau loans
         bb_agg = bb.groupby("SK_ID_BUREAU").agg({
             "MONTHS_BALANCE": ["min", "max", "size"]
         })
         bb_agg.columns = ["BB_" + "_".join(x).upper() for x in bb_agg.columns]
         bureau = bureau.merge(bb_agg, on="SK_ID_BUREAU", how="left")
 
+    # Final aggregation per customer (SK_ID_CURR)
     bureau_agg = bureau.groupby("SK_ID_CURR").agg({
         "SK_ID_BUREAU": "count",
         "DAYS_CREDIT": ["min", "max", "mean"],
@@ -274,6 +289,12 @@ def select_features_by_drift(train_df: pd.DataFrame, test_df: pd.DataFrame,
     """
     Identifies and drops features that show significant drift and have low importance.
     
+    The 'Informed Drift Mitigation' Algorithm (2-Stage Filter):
+    1. Detection: Flags features with a relative mean difference > drift_threshold.
+    2. Gating: A feature is ONLY dropped if it is flagged AND its predictive importance
+       is below importance_threshold. This ensures that critical but unstable signals
+       are preserved.
+    
     Args:
         train_df (pd.DataFrame): Training data.
         test_df (pd.DataFrame): Test data.
@@ -290,19 +311,19 @@ def select_features_by_drift(train_df: pd.DataFrame, test_df: pd.DataFrame,
     to_drop = []
 
     if importances is not None:
-        # Map back to original features (some might be OHE)
-        # But here check_data_drift works on original columns before OHE.
+        # Check if drifted columns should be dropped based on their importance
         for col, drift_score in drifted_cols.items():
             # Find importance for this feature
             feat_importance = importances[importances['feature'] == col]['importance'].max()
 
             # If importance is NaN (not in model) or below threshold, drop it
+            # NaN usually means the feature was already removed or ignored by the model.
             if pd.isna(feat_importance) or feat_importance < importance_threshold:
                 to_drop.append(col)
                 logger.info(f"Dropping drifted feature: {col} (Drift: {drift_score:.2f}, Importance: {feat_importance})")
     else:
-        # If no importances provided, we can't safely drop based on importance
-        # Maybe just log?
+        # If no importances provided, we log a warning but don't drop anything to avoid
+        # losing potentially vital information without validation.
         logger.warning("No importance data provided for drift-based feature selection.")
 
     if to_drop:
