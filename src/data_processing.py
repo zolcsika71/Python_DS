@@ -313,8 +313,12 @@ def select_features_by_drift(train_df: pd.DataFrame, test_df: pd.DataFrame,
     if importances is not None:
         # Check if drifted columns should be dropped based on their importance
         for col, drift_score in drifted_cols.items():
-            # Find importance for this feature
-            feat_importance = importances[importances['feature'] == col]['importance'].max()
+            # Find importance for this feature. We use .values[0] if present to avoid Series overhead,
+            # or default to NaN if the feature was not seen by the pilot model.
+            feat_match = importances[importances['feature'] == col]
+            feat_importance = np.nan
+            if not feat_match.empty:
+                feat_importance = feat_match['importance'].iloc[0]
 
             # If importance is NaN (not in model) or below threshold, drop it
             # NaN usually means the feature was already removed or ignored by the model.

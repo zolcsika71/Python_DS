@@ -1,16 +1,15 @@
 import os
-import numpy as np
 from datetime import datetime
+
+import numpy as np
 import pandas as pd
-from sklearn.pipeline import Pipeline
 
 from src.config import logger, CONFIG, ModelConfig, setup_directories
 from src.data_processing import (
-    load_data, 
-    fix_known_anomalies, 
-    add_engineered_features, 
-    validate_data_schema, 
-    check_data_drift,
+    load_data,
+    fix_known_anomalies,
+    add_engineered_features,
+    validate_data_schema,
     select_features_by_drift
 )
 from src.modeling import build_pipeline, cross_validate_auc
@@ -21,6 +20,7 @@ from src.visualization import (
     plot_top_10_closest_targets,
     plot_shap_summary
 )
+
 
 def analyze_top_10_targets(submission_df: pd.DataFrame, config: ModelConfig):
     """

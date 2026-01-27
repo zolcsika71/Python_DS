@@ -53,6 +53,7 @@ def plot_roc_curve(y_true, y_probes, out_path):
     plt.close()
 
 def plot_feature_importance(clf, top_n=20, out_dir="plots"):
+    # sourcery skip: low-code-quality
     """
     Extracts feature names from the pipeline and plots feature importance if the model supports it.
     

@@ -1,9 +1,12 @@
-# Home Credit Default Risk: Competition-Grade Machine Learning Pipeline (v2.5.0)
+# Home Credit Default Risk: Competition-Grade Machine Learning Pipeline (v2.5.3)
 
 ### 1. Project Overview
 The **[Home Credit Default Risk](https://www.kaggle.com/c/home-credit-default-risk)** project is an elite-level machine learning pipeline (Suitability Score: 10/10) specifically engineered for high-stakes financial risk assessment. The project's primary objective is to predict whether an applicant will have difficulties repaying a loan, enabling lenders to make data-driven decisions that balance growth with risk stability.
 
 #### Key Features:
+*   **Import Safety & Type Consistency (v2.5.3)**: Ensured that `TargetEncoder` is always defined in `src/modeling.py`, even when the `category_encoders` library is missing, preventing potential `NameError` or static analysis failures.
+*   **Static Analysis Type Safety (v2.5.2)**: Resolved IDE 'unresolved reference' warnings for `iloc` and `empty` by refining the data lookup logic in `src/data_processing.py`.
+*   **Informed Drift Gating Refinement (v2.5.1)**: Improved the robustness of feature importance lookups during the drift mitigation phase.
 *   **Enhanced Documentation & Maintainability (v2.5.0)**: Upgraded the entire codebase with detailed, instructive comments and docstrings.
 *   **Project Optimization & Efficiency (v2.4.0)**: Implemented a strategic optimization framework focusing on workflow automation, resource management, and code scalability.
 *   **Parallel Supplemental Processing**: Utilizes multi-core processing for concurrent loading and aggregation of massive relational datasets.
@@ -273,6 +276,9 @@ This project is licensed under the **MIT License**. See the project root for ful
 ---
 
 ### 13. Changelog
+*   **v2.5.3**: Import Safety & Type Consistency. Ensured that `TargetEncoder` is explicitly defined in the `except` block of `src/modeling.py` to prevent static analysis warnings and potential `NameError` scenarios when `category_encoders` is unavailable.
+*   **v2.5.2**: Resolved static analysis warnings. Refactored feature importance lookup in `src/data_processing.py` to ensure type consistency and satisfy IDE inspections for `iloc` and `empty` references.
+*   **v2.5.1**: Informed Drift Gating Refinement. Improved the robustness of feature importance lookups in `src/data_processing.py` to gracefully handle missing features and empty Series results.
 *   **v2.4.0**: Project Optimization & Efficiency Refactor. Implemented a strategic framework for workflow automation, CI/CD readiness, and resource scalability based on a comprehensive consultant audit.
 *   **v2.3.0**: Enhanced Git Management & Repository Cleanliness. Updated `.gitignore` to prevent leaks of massive datasets (`/data`), temporary ensemble logs (`catboost_info/`), and diagnostic scripts. Added technical guidelines for clean repository maintenance.
 *   **v2.2.0**: Performance & Parallelization Refactor. Implemented parallel supplemental data aggregation and memory-efficient I/O with intelligent type casting (float32/int32).

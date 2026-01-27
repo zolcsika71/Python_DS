@@ -1,8 +1,6 @@
 import pandas as pd
-import numpy as np
 import os
 import sys
-import matplotlib.pyplot as plt
 
 # Add project root to path so we can import src
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -13,9 +11,7 @@ if __name__ == "__main__":
     import glob
     # Automatically find the latest submission
     submission_pattern = os.path.join(CONFIG.paths.submissions_dir, "submission_*.csv")
-    submission_files = sorted(glob.glob(submission_pattern))
-    
-    if submission_files:
+    if submission_files := sorted(glob.glob(submission_pattern)):
         latest_submission = submission_files[-1]
         logger.info(f"Analyzing latest submission: {os.path.basename(latest_submission)}")
         df = pd.read_csv(latest_submission)

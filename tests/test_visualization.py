@@ -4,9 +4,7 @@ import unittest
 import tempfile
 import shutil
 import numpy as np
-import pandas as pd
 from sklearn.pipeline import Pipeline
-from sklearn.ensemble import RandomForestClassifier
 
 # Add project root to path so we can import src
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -52,7 +50,8 @@ class TestVisualization(unittest.TestCase):
                 self.n_features_in_ = 3
         
         class MockPrep:
-            def get_feature_names_out(self):
+            @staticmethod
+            def get_feature_names_out():
                 return np.array(['feat1', 'feat2', 'feat3'])
         
         clf = Pipeline([

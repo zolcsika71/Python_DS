@@ -15,6 +15,7 @@ try:
     from category_encoders import TargetEncoder
     TARGET_ENCODER_AVAILABLE = True
 except ImportError:
+    TargetEncoder = None
     TARGET_ENCODER_AVAILABLE = False
 
 from src.config import logger, CONFIG
@@ -38,45 +39,7 @@ def try_build_model(prefer_lightgbm: bool, calibrate: bool = True, use_ensemble:
     """
     if use_ensemble:
         try:
-            from lightgbm import LGBMClassifier
-            from xgboost import XGBClassifier
-            from catboost import CatBoostClassifier
-            
-            # To avoid nested parallelism issues that lead to hangs/KeyboardInterrupt,
-            # we ensure base models use a single thread when stacked.
-            # Rationale: The StackingClassifier/CalibratedClassifierCV handles its own
-            # parallel loops, so nested n_jobs=-1 would oversubscribe CPU resources.
-            lgbm_params = CONFIG.lgbm_params.copy()
-            lgbm_params['n_jobs'] = 1
-            lgbm_params['num_threads'] = 1
-            
-            xgb_params = CONFIG.xgb_params.copy()
-            xgb_params['n_jobs'] = 1
-            
-            cat_params = CONFIG.cat_params.copy()
-            cat_params['thread_count'] = 1
-            
-            base_models = [
-                ('lgbm', LGBMClassifier(**lgbm_params)),
-                ('xgb', XGBClassifier(**xgb_params)),
-                ('cat', CatBoostClassifier(**cat_params))
-            ]
-            
-            # Using LogisticRegression as meta-learner
-            stack = StackingClassifier(
-                estimators=base_models,
-                final_estimator=LogisticRegression(),
-                cv=3,
-                stack_method='predict_proba',
-                n_jobs=1
-            )
-            
-            if calibrate:
-                # We use 3-fold internal CV for calibration to prevent overfitting
-                # of the sigmoid parameters to the training set.
-                return CalibratedClassifierCV(stack, method='sigmoid', cv=3, n_jobs=1)
-            return stack
-            
+            return _build_competition_ensemble(calibrate)
         except ImportError as e:
             logger.warning(f"Ensemble libraries not available, falling back. Error: {e}")
 
@@ -100,8 +63,49 @@ def try_build_model(prefer_lightgbm: bool, calibrate: bool = True, use_ensemble:
     if calibrate:
         # Platt scaling (method='sigmoid') or Isotonic regression (method='isotonic')
         return CalibratedClassifierCV(model, method='sigmoid', cv=3, n_jobs=1)
-    
+
     return model
+
+
+def _build_competition_ensemble(calibrate):
+    from lightgbm import LGBMClassifier
+    from xgboost import XGBClassifier
+    from catboost import CatBoostClassifier
+
+    # To avoid nested parallelism issues that lead to hangs/KeyboardInterrupt,
+    # we ensure base models use a single thread when stacked.
+    # Rationale: The StackingClassifier/CalibratedClassifierCV handles its own
+    # parallel loops, so nested n_jobs=-1 would oversubscribe CPU resources.
+    lgbm_params = CONFIG.lgbm_params.copy()
+    lgbm_params['n_jobs'] = 1
+    lgbm_params['num_threads'] = 1
+
+    xgb_params = CONFIG.xgb_params.copy()
+    xgb_params['n_jobs'] = 1
+
+    cat_params = CONFIG.cat_params.copy()
+    cat_params['thread_count'] = 1
+
+    base_models = [
+        ('lgbm', LGBMClassifier(**lgbm_params)),
+        ('xgb', XGBClassifier(**xgb_params)),
+        ('cat', CatBoostClassifier(**cat_params))
+    ]
+
+    # Using LogisticRegression as meta-learner
+    stack = StackingClassifier(
+        estimators=base_models,
+        final_estimator=LogisticRegression(),
+        cv=3,
+        stack_method='predict_proba',
+        n_jobs=1
+    )
+
+    if calibrate:
+        # We use 3-fold internal CV for calibration to prevent overfitting
+        # of the sigmoid parameters to the training set.
+        return CalibratedClassifierCV(stack, method='sigmoid', cv=3, n_jobs=1)
+    return stack
 
 def clean_column_names_func(df):
     """Function to clean column names for LightGBM compatibility."""
